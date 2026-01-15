@@ -1,0 +1,14 @@
+version: 1
+
+metrics:
+  commit_count: true
+  commit_by_type: true
+  lines_changed: true
+  merge_summaries: true
+  contribution_score: true
+
+report:
+  formats:
+    - csv
+    - xlsx
+    - pdf
