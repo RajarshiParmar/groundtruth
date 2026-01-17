@@ -138,8 +138,15 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 			for _, f := range cfg.Output.Formats {
-				if f == "csv" {
-					return report.WriteCSV(results, cfg.Output.Directory)
+				switch f {
+				case "csv":
+					if err := report.WriteCSV(results, cfg.Output.Directory); err != nil {
+						return err
+					}
+				case "xlsx":
+					if err := report.WriteXLSX(results, cfg.Output.Directory); err != nil {
+						return err
+					}
 				}
 			}
 
