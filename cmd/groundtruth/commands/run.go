@@ -8,6 +8,7 @@ import (
 	"github.com/RajarshiParmar/groundtruth/internal/git"
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
 	"github.com/RajarshiParmar/groundtruth/internal/model"
+	"github.com/RajarshiParmar/groundtruth/internal/report"
 	"github.com/spf13/cobra"
 )
 
@@ -130,6 +131,16 @@ func RunCmd() *cobra.Command {
 			if dryRun {
 				fmt.Println("dry run complete")
 				return nil
+			}
+
+			// CSV
+			if err := report.WriteCSV(results, cfg.Output.Directory); err != nil {
+				return err
+			}
+			for _, f := range cfg.Output.Formats {
+				if f == "csv" {
+					return report.WriteCSV(results, cfg.Output.Directory)
+				}
 			}
 
 			return nil
