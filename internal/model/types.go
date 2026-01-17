@@ -12,3 +12,11 @@ type Commit struct {
 	IsMerge     bool
 	ParentCount int
 }
+
+type ClassifiedCommit struct {
+	Commit
+
+	Type     string
+	Scope    string
+	Breaking bool
+}
