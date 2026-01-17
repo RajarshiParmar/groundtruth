@@ -35,11 +35,11 @@ metrics:
   # All metrics are optional and removable
   commit_count: true
   commit_by_type: true
-  lines_changed: false
+  lines_changed: true
   files_changed: true
   activity_timeline: true
   merge_summaries: true
-  contribution_score: false
+  contribution_score: true
 
 report:
   sections:

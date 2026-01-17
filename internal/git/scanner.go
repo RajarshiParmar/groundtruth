@@ -55,6 +55,16 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 			IsMerge:     len(c.ParentHashes) > 1,
 		}
 
+		if !commit.IsMerge {
+			stats, err := c.Stats()
+			if err == nil {
+				for _, s := range stats {
+					commit.LinesAdded += s.Addition
+					commit.LinesRemoved += s.Deletion
+				}
+			}
+		}
+
 		commits = append(commits, commit)
 		return nil
 	})

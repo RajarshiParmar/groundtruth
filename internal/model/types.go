@@ -11,6 +11,9 @@ type Commit struct {
 
 	IsMerge     bool
 	ParentCount int
+
+	LinesAdded   int
+	LinesRemoved int
 }
 
 type ClassifiedCommit struct {
