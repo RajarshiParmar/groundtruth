@@ -14,6 +14,8 @@ type Commit struct {
 
 	LinesAdded   int
 	LinesRemoved int
+
+	FilesChanged []string
 }
 
 type ClassifiedCommit struct {

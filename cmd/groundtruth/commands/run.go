@@ -78,6 +78,7 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.CommitCountMetric{})
 			registry.Register(&metrics.CommitByTypeMetric{})
 			registry.Register(&metrics.LinesChangedMetric{})
+			registry.Register(&metrics.FilesChangedMetric{})
 
 			var results []metrics.Result
 
@@ -95,6 +96,12 @@ func RunCmd() *cobra.Command {
 
 			if cfg.Metrics.LinesChanged {
 				if m, ok := registry.Get("lines_changed"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			if cfg.Metrics.FilesChanged {
+				if m, ok := registry.Get("files_changed"); ok {
 					results = append(results, m.Compute(classified))
 				}
 			}

@@ -65,6 +65,16 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 			}
 		}
 
+		if !commit.IsMerge {
+			files, err := c.Files()
+			if err == nil {
+				_ = files.ForEach(func(f *object.File) error {
+					commit.FilesChanged = append(commit.FilesChanged, f.Name)
+					return nil
+				})
+			}
+		}
+
 		commits = append(commits, commit)
 		return nil
 	})
