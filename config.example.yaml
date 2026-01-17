@@ -1,0 +1,72 @@
+version: 1
+
+repository:
+  # Path to a single git repository or a base directory
+  path: .
+
+  # If true, all subdirectories under `path` will be scanned for git repositories
+  base_dir: false
+
+identity:
+  # Only commits matching these authors will be included
+  # Useful if you have used multiple emails over time
+  authors:
+    - name: Your Name
+      email: you@company.com
+    - email: you@gmail.com
+
+time_range:
+  # Use ONE of the following modes
+
+  # Option A: explicit date range (ISO format)
+  from: 2025-01-01
+  to: 2025-06-30
+
+  # Option B: relative range (comment out from/to if used)
+  # last: 6m   # supported: 30d | 6m | 1y
+
+merge_commits:
+  # ignore   → exclude merge commits entirely
+  # include  → treat merge commits as normal commits
+  # analyze  → extract summaries and group child commits
+  mode: analyze
+
+metrics:
+  # All metrics are optional and removable
+  commit_count: true
+  commit_by_type: true
+  lines_changed: true
+  files_changed: true
+  activity_timeline: true
+  merge_summaries: true
+  contribution_score: true
+
+report:
+  sections:
+    summary: true
+    metrics: true
+    timeline: true
+    merges: true
+
+output:
+  # Supported formats: csv, xlsx, pdf
+  formats:
+    - csv
+    - xlsx
+    - pdf
+
+  # Output directory (created if it does not exist)
+  directory: ./groundtruth-report
+
+scoring:
+  # Disabled by default. Enable only if you explicitly want a score.
+  enabled: false
+
+  # Applied only if scoring.enabled = true
+  # Uses only enabled metrics
+  weights:
+    commit_count: 1
+    commit_by_type:
+      feat: 3
+      fix: 2
+      docs: 1
