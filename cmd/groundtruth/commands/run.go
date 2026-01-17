@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/RajarshiParmar/groundtruth/internal/config"
+	"github.com/RajarshiParmar/groundtruth/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -21,13 +22,29 @@ func RunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_ = cfg
+			scanner := git.NewScanner(cfg.Repository.Path)
+
+			// Convert time range
+			from, to, err := config.TimeRangeToBounds(cfg.TimeRange)
+			if err != nil {
+				return err
+			}
+
+			// Build allowed email set
+			emails := make(map[string]bool)
+			for _, a := range cfg.Identity.Authors {
+				if a.Email != "" {
+					emails[a.Email] = true
+				}
+			}
+
+			commits, err := scanner.Scan(from, to, emails)
+			if err != nil {
+				return err
+			}
 
 			if verbose {
-				fmt.Println("config loaded successfully")
-				if outputDir != "" {
-					fmt.Println("output override:", outputDir)
-				}
+				fmt.Printf("scanned %d commits\n", len(commits))
 			}
 
 			if dryRun {
