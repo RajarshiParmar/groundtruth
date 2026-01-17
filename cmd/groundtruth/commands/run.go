@@ -133,7 +133,7 @@ func RunCmd() *cobra.Command {
 				return nil
 			}
 
-			// CSV
+			// Reports
 			if err := report.WriteCSV(results, cfg.Output.Directory); err != nil {
 				return err
 			}
@@ -145,6 +145,10 @@ func RunCmd() *cobra.Command {
 					}
 				case "xlsx":
 					if err := report.WriteXLSX(results, cfg.Output.Directory); err != nil {
+						return err
+					}
+				case "pdf":
+					if err := report.WritePDF(results, cfg.Output.Directory); err != nil {
 						return err
 					}
 				}
