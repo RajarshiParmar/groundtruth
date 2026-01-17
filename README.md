@@ -8,6 +8,60 @@ It is built for developers who want a **clear, honest summary of their work**, w
 
 ---
 
+## Installation
+
+Clone the repository and build locally:
+
+```bash
+git clone https://github.com/<your-username>/groundtruth
+cd groundtruth
+go build ./cmd/groundtruth
+````
+
+This produces a `groundtruth` binary in the project directory.
+
+---
+
+## Basic usage
+
+Create a configuration file (see example below), then run:
+
+```bash
+./groundtruth run --config config.example.yaml
+```
+
+Validate configuration and repository access without generating reports:
+
+```bash
+./groundtruth run --config config.example.yaml --dry-run
+```
+
+Enable verbose output for debugging:
+
+```bash
+./groundtruth run --config config.example.yaml --verbose
+```
+
+---
+
+## Output
+
+Reports are written to the directory specified in the config file.
+
+For CSV output, one file is generated per enabled metric, for example:
+
+* `commit_count.csv`
+* `commit_by_type.csv`
+* `lines_changed.csv`
+* `files_changed.csv`
+* `activity_timeline_weekly.csv`
+* `activity_timeline_monthly.csv`
+* `merge_summaries.csv`
+
+Only enabled metrics produce output files.
+
+---
+
 ## Example configuration (all options)
 
 ```yaml
@@ -58,17 +112,15 @@ report:
     merges: true
 
 output:
-  # Supported: csv, xlsx, pdf
+  # Supported: csv
   formats:
     - csv
-    - xlsx
-    - pdf
 
   # Output directory (created if missing)
   directory: ./groundtruth-report
 
 scoring:
-  # Disabled by default. Use only if you understand the limitations.
+  # Disabled by default. Enable only if you explicitly want a score.
   enabled: false
 
   # Weights are applied only if scoring is enabled
@@ -89,12 +141,6 @@ scoring:
 * Supports Conventional Commits (v1.0.0)
 * Understands merge commits
 * Generates reports you control
-
-Supported output formats:
-
-* CSV
-* XLSX
-* PDF
 
 ---
 
