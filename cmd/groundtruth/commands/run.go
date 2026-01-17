@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 
+	"github.com/RajarshiParmar/groundtruth/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -16,12 +17,24 @@ func RunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Generate appraisal report from git history",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Placeholder behavior
-			fmt.Println("running groundtruth")
-			fmt.Println("config:", configPath)
-			fmt.Println("output:", outputDir)
-			fmt.Println("dry-run:", dryRun)
-			fmt.Println("verbose:", verbose)
+			cfg, err := config.Load(configPath)
+			if err != nil {
+				return err
+			}
+			_ = cfg
+
+			if verbose {
+				fmt.Println("config loaded successfully")
+				if outputDir != "" {
+					fmt.Println("output override:", outputDir)
+				}
+			}
+
+			if dryRun {
+				fmt.Println("dry run complete")
+				return nil
+			}
+
 			return nil
 		},
 	}
@@ -31,7 +44,9 @@ func RunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate config and repo without running analysis")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 
-	cmd.MarkFlagRequired("config")
+	if err := cmd.MarkFlagRequired("config"); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }
