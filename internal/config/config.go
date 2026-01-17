@@ -26,7 +26,7 @@ type Repository struct {
 }
 
 type Identity struct {
-	Authors []Author `yaml:"author"`
+	Authors []Author `yaml:"authors"`
 }
 
 type Author struct {
