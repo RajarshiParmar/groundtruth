@@ -6,6 +6,7 @@ import (
 	"github.com/RajarshiParmar/groundtruth/internal/classify"
 	"github.com/RajarshiParmar/groundtruth/internal/config"
 	"github.com/RajarshiParmar/groundtruth/internal/git"
+	"github.com/RajarshiParmar/groundtruth/internal/metrics"
 	"github.com/RajarshiParmar/groundtruth/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -72,13 +73,30 @@ func RunCmd() *cobra.Command {
 				fmt.Printf("classified %d commits\n", len(classified))
 			}
 
+			// Metrics
+			registry := metrics.NewRegistry()
+			registry.Register(&metrics.CommitCountMetric{})
+
+			var results []metrics.Result
+
+			if cfg.Metrics.CommitCount {
+				if m, ok := registry.Get("commit_count"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			if verbose {
+				for _, r := range results {
+					fmt.Printf("metric %s = %v\n", r.Name, r.Value)
+				}
+			}
+
 			// Dry run stops here
 			if dryRun {
 				fmt.Println("dry run complete")
 				return nil
 			}
 
-			// Metrics and reporting will be added next
 			return nil
 		},
 	}
