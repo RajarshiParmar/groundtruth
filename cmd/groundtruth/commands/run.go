@@ -80,6 +80,7 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.LinesChangedMetric{})
 			registry.Register(&metrics.FilesChangedMetric{})
 			registry.Register(&metrics.ActivityTimelineMetric{})
+			registry.Register(&metrics.MergeSummariesMetric{})
 
 			var results []metrics.Result
 
@@ -109,6 +110,12 @@ func RunCmd() *cobra.Command {
 
 			if cfg.Metrics.ActivityTimeline {
 				if m, ok := registry.Get("activity_timeline"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			if cfg.Metrics.MergeSummaries {
+				if m, ok := registry.Get("merge_summaries"); ok {
 					results = append(results, m.Compute(classified))
 				}
 			}

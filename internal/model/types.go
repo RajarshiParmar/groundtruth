@@ -25,3 +25,11 @@ type ClassifiedCommit struct {
 	Scope    string
 	Breaking bool
 }
+
+type MergeSummary struct {
+	Hash        string
+	Message     string
+	Timestamp   time.Time
+	CommitCount int
+	Types       map[string]int
+}
