@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -97,11 +98,17 @@ func Load(path string) (*Config, error) {
 }
 
 func validate(cfg *Config) error {
+	// version
 	if cfg.Version != 1 {
 		return fmt.Errorf("unsupported config version: %d", cfg.Version)
 	}
 
-	// Time range validation
+	// repository
+	if cfg.Repository.Path == "" {
+		return fmt.Errorf("repository.path is required")
+	}
+
+	// time range
 	hasExplicit := cfg.TimeRange.From != "" || cfg.TimeRange.To != ""
 	hasRelative := cfg.TimeRange.Last != ""
 
@@ -113,15 +120,80 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("time_range: one of from/to or last must be specified")
 	}
 
+	if hasExplicit {
+		if cfg.TimeRange.From == "" || cfg.TimeRange.To == "" {
+			return fmt.Errorf("time_range: both from and to must be set")
+		}
+
+		from, err := time.Parse("2006-01-02", cfg.TimeRange.From)
+		if err != nil {
+			return fmt.Errorf("time_range.from: invalid date %q", cfg.TimeRange.From)
+		}
+
+		to, err := time.Parse("2006-01-02", cfg.TimeRange.To)
+		if err != nil {
+			return fmt.Errorf("time_range.to: invalid date %q", cfg.TimeRange.To)
+		}
+
+		if from.After(to) {
+			return fmt.Errorf("time_range: from must be before or equal to to")
+		}
+	}
+
+	if hasRelative {
+		switch cfg.TimeRange.Last {
+		case "30d", "6m", "1y":
+			// ok
+		default:
+			return fmt.Errorf("time_range.last: unsupported value %q", cfg.TimeRange.Last)
+		}
+	}
+
+	// merge commits
 	switch cfg.MergeCommits.Mode {
 	case "ignore", "include", "analyze":
-	// ok
+		// ok
 	default:
 		return fmt.Errorf("merge_commits.mode must be one of ignore, include, analyze")
 	}
 
+	// metrics
+	if !(cfg.Metrics.CommitCount ||
+		cfg.Metrics.CommitByType ||
+		cfg.Metrics.LinesChanged ||
+		cfg.Metrics.FilesChanged ||
+		cfg.Metrics.ActivityTimeline ||
+		cfg.Metrics.MergeSummaries ||
+		cfg.Metrics.ContributionScore) {
+		return fmt.Errorf("metrics: at least one metric must be enabled")
+	}
+
+	// output
 	if len(cfg.Output.Formats) == 0 {
 		return fmt.Errorf("output.formats must contain at least one format")
+	}
+
+	allowedFormats := map[string]bool{
+		"csv":  true,
+		"xlsx": true,
+		"pdf":  true,
+	}
+
+	for _, f := range cfg.Output.Formats {
+		if !allowedFormats[f] {
+			return fmt.Errorf("output.formats: unsupported format %q", f)
+		}
+	}
+
+	if cfg.Output.Directory == "" {
+		return fmt.Errorf("output.directory is required")
+	}
+
+	// scoring
+	if cfg.Scoring.Enabled {
+		if len(cfg.Scoring.Weights) == 0 {
+			return fmt.Errorf("scoring.enabled is true but no weights are defined")
+		}
 	}
 
 	return nil

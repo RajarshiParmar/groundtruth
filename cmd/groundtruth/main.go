@@ -15,6 +15,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(commands.RunCmd())
+	rootCmd.AddCommand(commands.ValidateCmd())
 	rootCmd.AddCommand(commands.VersionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
