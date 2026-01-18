@@ -33,3 +33,4 @@ go.work.sum
 
 # Reports
 groundtruth-report/
+config.yaml
