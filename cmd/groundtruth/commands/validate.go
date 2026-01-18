@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/RajarshiParmar/groundtruth/internal/config"
+	"github.com/RajarshiParmar/groundtruth/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -14,11 +15,16 @@ func ValidateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfgPath, _ := cmd.Flags().GetString("config")
 
-			if _, err := config.Load(cfgPath); err != nil {
+			cfg, err := config.Load(cfgPath)
+			if err != nil {
 				return err
 			}
 
-			fmt.Println("configuration is valid")
+			if err := git.ValidateRepo(cfg.Repository.Path); err != nil {
+				return fmt.Errorf("git: %w", err)
+			}
+
+			fmt.Println("configuration and repository are valid")
 			return nil
 		},
 	}
