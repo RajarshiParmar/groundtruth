@@ -20,11 +20,17 @@ func ValidateCmd() *cobra.Command {
 				return err
 			}
 
-			if err := git.ValidateRepo(cfg.Repository.Path); err != nil {
-				return fmt.Errorf("git: %w", err)
+			if cfg.Repository.BaseDir {
+				if err := git.ValidateBaseDir(cfg.Repository.Path); err != nil {
+					return fmt.Errorf("git: %w", err)
+				}
+			} else {
+				if err := git.ValidateRepo(cfg.Repository.Path); err != nil {
+					return fmt.Errorf("git: %w", err)
+				}
 			}
-
 			fmt.Println("configuration and repository are valid")
+
 			return nil
 		},
 	}

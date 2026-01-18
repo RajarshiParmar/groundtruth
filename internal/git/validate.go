@@ -43,3 +43,30 @@ func ValidateRepo(path string) error {
 
 	return nil
 }
+
+func ValidateBaseDir(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("repository path does not exist: %s", path)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("repository path is not a directory: %s", path)
+	}
+
+	repos, err := DiscoverGitRepos(path)
+	if err != nil {
+		return err
+	}
+
+	if len(repos) == 0 {
+		return fmt.Errorf("no git repositories found under: %s", path)
+	}
+
+	for _, r := range repos {
+		if err := ValidateRepo(r); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
