@@ -31,8 +31,5 @@ go.work.sum
 # .idea/
 # .vscode/
 
-# Build
-groundtruth
-
 # Reports
 groundtruth-report/
