@@ -40,6 +40,9 @@ func writeMetricCSV(r metrics.Result, dir string) error {
 	case []model.MergeSummary:
 		return writeMergeSummaries(r.Name, v, dir)
 
+	case map[string]any:
+		return writeContributionScoreCSV(r.Name, v, dir)
+
 	default:
 		return fmt.Errorf("unsupported metric output for %s", r.Name)
 	}
@@ -130,6 +133,36 @@ func writeTimeline(name string, data map[string]map[string]int, dir string) erro
 
 		w.Flush()
 		f.Close()
+	}
+
+	return nil
+}
+
+func writeContributionScoreCSV(name string, data map[string]any, dir string) error {
+	path := filepath.Join(dir, name+".csv")
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	w.Write([]string{"component", "score"})
+
+	if breakdown, ok := data["breakdown"].(map[string]float64); ok {
+		for k, v := range breakdown {
+			w.Write([]string{k, fmt.Sprintf("%.2f", v)})
+		}
+	}
+
+	if total, ok := data["total"].(float64); ok {
+		w.Write([]string{"total", fmt.Sprintf("%.2f", total)})
+	}
+
+	if count, ok := data["commit_count"].(int); ok {
+		w.Write([]string{"commit_count", fmt.Sprintf("%d", count)})
 	}
 
 	return nil

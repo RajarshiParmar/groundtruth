@@ -50,6 +50,9 @@ func writeMetricPDF(pdf *gofpdf.Fpdf, r metrics.Result) {
 	case []model.MergeSummary:
 		writeMergeSummaryPDF(pdf, v)
 
+	case map[string]any:
+		writeContributionScorePDF(pdf, v)
+
 	default:
 		pdf.Cell(0, 6, "Unsupported metric format")
 	}
@@ -88,5 +91,31 @@ func writeMergeSummaryPDF(pdf *gofpdf.Fpdf, data []model.MergeSummary) {
 		pdf.Ln(5)
 		pdf.Cell(0, 5, fmt.Sprintf("Types: %v", m.Types))
 		pdf.Ln(7)
+	}
+}
+
+func writeContributionScorePDF(pdf *gofpdf.Fpdf, data map[string]any) {
+	if total, ok := data["total"].(float64); ok {
+		pdf.SetFont("Arial", "B", 11)
+		pdf.Cell(0, 6, fmt.Sprintf("Total Score: %.1f", total))
+		pdf.Ln(8)
+	}
+
+	if count, ok := data["commit_count"].(int); ok {
+		pdf.SetFont("Arial", "", 10)
+		pdf.Cell(0, 5, fmt.Sprintf("Commits: %d", count))
+		pdf.Ln(6)
+	}
+
+	if breakdown, ok := data["breakdown"].(map[string]float64); ok {
+		pdf.SetFont("Arial", "I", 10)
+		pdf.Cell(0, 5, "Breakdown by type:")
+		pdf.Ln(6)
+
+		pdf.SetFont("Arial", "", 10)
+		for k, v := range breakdown {
+			pdf.CellFormat(80, 5, k, "", 0, "", false, 0, "")
+			pdf.CellFormat(0, 5, fmt.Sprintf("%.1f", v), "", 1, "", false, 0, "")
+		}
 	}
 }
