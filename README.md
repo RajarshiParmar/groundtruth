@@ -167,6 +167,12 @@ scoring:
       docs: 1
 ```
 
+**Validation rules:**
+
+- `scoring.enabled: true` requires `metrics.contribution_score: true`.
+- Only `commit_count` and `commit_by_type.<type>` are valid keys under `weights`; unknown keys are rejected at load time.
+- Weights must be non-negative.
+
 ---
 
 ## What it does
