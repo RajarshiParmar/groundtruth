@@ -4,18 +4,30 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
 	"github.com/RajarshiParmar/groundtruth/internal/model"
 )
 
-const lineWidth = 42
+const (
+	lineWidth = 42
+	titleText = "groundtruth summary"
+)
 
 // WriteSummary prints a concise summary of all computed metrics to stdout.
 func WriteSummary(results []metrics.Result) {
 	border := strings.Repeat("\u2500", lineWidth)
 
-	fmt.Printf("\u2500\u2500 groundtruth summary %s\n", border[:lineWidth-21])
+	// Compose a header line of exactly lineWidth runes:
+	// "── <title> " followed by enough box-drawing characters to fill.
+	prefix := "\u2500\u2500 " + titleText + " "
+	prefixRunes := len([]rune(prefix))
+	fillCount := lineWidth - prefixRunes
+	if fillCount < 0 {
+		fillCount = 0
+	}
+	fmt.Printf("%s%s\n", prefix, strings.Repeat("\u2500", fillCount))
 
 	for _, r := range results {
 		printMetricSummary(r)
@@ -35,16 +47,21 @@ func printMetricSummary(r metrics.Result) {
 		fmt.Printf("  %-20s %s\n", formatLabel(r.Name), parts)
 
 	case map[string]map[string]int:
-		for period, values := range v {
+		periods := make([]string, 0, len(v))
+		for p := range v {
+			periods = append(periods, p)
+		}
+		sort.Strings(periods)
+		for _, period := range periods {
 			label := fmt.Sprintf("%s (%s)", formatLabel(r.Name), period)
-			parts := formatKeyValueInline(values)
+			parts := formatKeyValueInline(v[period])
 			fmt.Printf("  %-20s %s\n", label, parts)
 		}
 
 	case []model.MergeSummary:
 		fmt.Printf("  %-20s %d merges\n", formatLabel(r.Name), len(v))
 
-	case map[string]any:
+	case model.ContributionScore:
 		printContributionScore(v)
 
 	default:
@@ -52,34 +69,42 @@ func printMetricSummary(r metrics.Result) {
 	}
 }
 
-func printContributionScore(data map[string]any) {
-	total, _ := data["total"].(float64)
-	commitCount, _ := data["commit_count"].(int)
+func printContributionScore(data model.ContributionScore) {
+	fmt.Printf("  %-20s %.1f  (%d commits)\n", "Contribution", data.Total, data.CommitCount)
 
-	fmt.Printf("  %-20s %.1f  (%d commits)\n", "Contribution", total, commitCount)
-
-	if breakdown, ok := data["breakdown"].(map[string]float64); ok {
-		// Sort keys for stable output
-		keys := make([]string, 0, len(breakdown))
-		for k := range breakdown {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		parts := make([]string, 0, len(keys))
-		for _, k := range keys {
-			parts = append(parts, fmt.Sprintf("%s: %.0f", k, breakdown[k]))
-		}
-		fmt.Printf("  %-20s %s\n", "", strings.Join(parts, "  "))
+	if len(data.Breakdown) == 0 {
+		return
 	}
+
+	keys := make([]string, 0, len(data.Breakdown))
+	for k := range data.Breakdown {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s: %.0f", k, data.Breakdown[k]))
+	}
+	fmt.Printf("  %-20s %s\n", "", strings.Join(parts, "  "))
 }
 
+// formatLabel converts a snake_case metric name to a Title Case label.
+// Uses a manual word walker instead of the deprecated strings.Title.
 func formatLabel(name string) string {
-	return strings.ReplaceAll(strings.Title(strings.ReplaceAll(name, "_", " ")), " ", " ")
+	words := strings.Split(name, "_")
+	for i, w := range words {
+		if w == "" {
+			continue
+		}
+		runes := []rune(w)
+		runes[0] = unicode.ToUpper(runes[0])
+		words[i] = string(runes)
+	}
+	return strings.Join(words, " ")
 }
 
 func formatKeyValueInline(data map[string]int) string {
-	// Sort keys for stable output
 	keys := make([]string, 0, len(data))
 	for k := range data {
 		keys = append(keys, k)

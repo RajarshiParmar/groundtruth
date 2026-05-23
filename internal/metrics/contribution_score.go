@@ -1,11 +1,14 @@
 package metrics
 
-import "github.com/RajarshiParmar/groundtruth/internal/model"
+import (
+	"github.com/RajarshiParmar/groundtruth/internal/config"
+	"github.com/RajarshiParmar/groundtruth/internal/model"
+)
 
-// ContributionScoreMetric computes a weighted composite score from classified commits.
-// When Weights is nil, sensible defaults are used.
+// ContributionScoreMetric computes a weighted composite score from classified
+// commits. When Weights is the zero value, the built-in defaults are used.
 type ContributionScoreMetric struct {
-	Weights map[string]any
+	Weights config.ScoringWeights
 }
 
 func (m *ContributionScoreMetric) Name() string {
@@ -13,8 +16,12 @@ func (m *ContributionScoreMetric) Name() string {
 }
 
 func (m *ContributionScoreMetric) Compute(commits []model.ClassifiedCommit) Result {
-	typeWeights := resolveTypeWeights(m.Weights)
-	countWeight := resolveCountWeight(m.Weights)
+	typeWeights := mergedTypeWeights(m.Weights.CommitByType)
+
+	base := m.Weights.CommitCount
+	if base == 0 {
+		base = 1.0
+	}
 
 	breakdown := make(map[string]float64)
 	var total float64
@@ -30,17 +37,17 @@ func (m *ContributionScoreMetric) Compute(commits []model.ClassifiedCommit) Resu
 			w = typeWeights["other"]
 		}
 
-		score := w * countWeight
+		score := w * base
 		breakdown[t] += score
 		total += score
 	}
 
 	return Result{
 		Name: m.Name(),
-		Value: map[string]any{
-			"total":        total,
-			"breakdown":    breakdown,
-			"commit_count": len(commits),
+		Value: model.ContributionScore{
+			Total:       total,
+			Breakdown:   breakdown,
+			CommitCount: len(commits),
 		},
 	}
 }
@@ -62,56 +69,12 @@ func DefaultTypeWeights() map[string]float64 {
 	}
 }
 
-// resolveTypeWeights extracts per-type weights from the scoring config,
-// falling back to defaults for any missing types.
-func resolveTypeWeights(weights map[string]any) map[string]float64 {
-	defaults := DefaultTypeWeights()
-
-	if weights == nil {
-		return defaults
+// mergedTypeWeights overlays user-supplied weights on top of defaults so that
+// unspecified types retain sensible defaults.
+func mergedTypeWeights(user map[string]float64) map[string]float64 {
+	out := DefaultTypeWeights()
+	for k, v := range user {
+		out[k] = v
 	}
-
-	raw, ok := weights["commit_by_type"]
-	if !ok {
-		return defaults
-	}
-
-	userMap, ok := raw.(map[string]any)
-	if !ok {
-		return defaults
-	}
-
-	// Merge user weights on top of defaults
-	for k, v := range userMap {
-		switch val := v.(type) {
-		case int:
-			defaults[k] = float64(val)
-		case float64:
-			defaults[k] = val
-		}
-	}
-
-	return defaults
-}
-
-// resolveCountWeight extracts the flat per-commit multiplier from scoring config.
-// Defaults to 1.0 if not specified.
-func resolveCountWeight(weights map[string]any) float64 {
-	if weights == nil {
-		return 1.0
-	}
-
-	raw, ok := weights["commit_count"]
-	if !ok {
-		return 1.0
-	}
-
-	switch val := raw.(type) {
-	case int:
-		return float64(val)
-	case float64:
-		return val
-	default:
-		return 1.0
-	}
+	return out
 }

@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	"github.com/xuri/excelize/v2"
 
@@ -41,7 +42,7 @@ func writeMetricSheet(f *excelize.File, r metrics.Result) error {
 	case []model.MergeSummary:
 		return writeMergeSummarySheet(f, r.Name, v)
 
-	case map[string]any:
+	case model.ContributionScore:
 		return writeContributionScoreSheet(f, r.Name, v)
 
 	default:
@@ -118,30 +119,30 @@ func writeMergeSummarySheet(f *excelize.File, name string, data []model.MergeSum
 	return nil
 }
 
-func writeContributionScoreSheet(f *excelize.File, name string, data map[string]any) error {
+func writeContributionScoreSheet(f *excelize.File, name string, data model.ContributionScore) error {
 	f.NewSheet(name)
 	f.SetCellValue(name, "A1", "component")
 	f.SetCellValue(name, "B1", "score")
 
-	row := 2
-	if breakdown, ok := data["breakdown"].(map[string]float64); ok {
-		for k, v := range breakdown {
-			f.SetCellValue(name, fmt.Sprintf("A%d", row), k)
-			f.SetCellValue(name, fmt.Sprintf("B%d", row), v)
-			row++
-		}
+	keys := make([]string, 0, len(data.Breakdown))
+	for k := range data.Breakdown {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 
-	if total, ok := data["total"].(float64); ok {
-		f.SetCellValue(name, fmt.Sprintf("A%d", row), "total")
-		f.SetCellValue(name, fmt.Sprintf("B%d", row), total)
+	row := 2
+	for _, k := range keys {
+		f.SetCellValue(name, fmt.Sprintf("A%d", row), k)
+		f.SetCellValue(name, fmt.Sprintf("B%d", row), data.Breakdown[k])
 		row++
 	}
 
-	if count, ok := data["commit_count"].(int); ok {
-		f.SetCellValue(name, fmt.Sprintf("A%d", row), "commit_count")
-		f.SetCellValue(name, fmt.Sprintf("B%d", row), count)
-	}
+	f.SetCellValue(name, fmt.Sprintf("A%d", row), "total")
+	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.Total)
+	row++
+
+	f.SetCellValue(name, fmt.Sprintf("A%d", row), "commit_count")
+	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.CommitCount)
 
 	return nil
 }

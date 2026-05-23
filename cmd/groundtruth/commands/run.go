@@ -83,8 +83,8 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.ActivityTimelineMetric{})
 			registry.Register(&metrics.MergeSummariesMetric{})
 
-			// Contribution score: use user weights if scoring is enabled, else defaults
-			var scoreWeights map[string]any
+			// Contribution score: typed weights; zero value yields defaults.
+			var scoreWeights config.ScoringWeights
 			if cfg.Scoring.Enabled {
 				scoreWeights = cfg.Scoring.Weights
 			}
