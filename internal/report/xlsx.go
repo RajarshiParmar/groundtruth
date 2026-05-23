@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	"github.com/xuri/excelize/v2"
 
@@ -40,6 +41,9 @@ func writeMetricSheet(f *excelize.File, r metrics.Result) error {
 
 	case []model.MergeSummary:
 		return writeMergeSummarySheet(f, r.Name, v)
+
+	case model.ContributionScore:
+		return writeContributionScoreSheet(f, r.Name, v)
 
 	default:
 		return fmt.Errorf("unsupported metric output for %s", r.Name)
@@ -111,6 +115,34 @@ func writeMergeSummarySheet(f *excelize.File, name string, data []model.MergeSum
 		f.SetCellValue(name, fmt.Sprintf("E%d", row), fmt.Sprintf("%v", m.Types))
 		row++
 	}
+
+	return nil
+}
+
+func writeContributionScoreSheet(f *excelize.File, name string, data model.ContributionScore) error {
+	f.NewSheet(name)
+	f.SetCellValue(name, "A1", "component")
+	f.SetCellValue(name, "B1", "score")
+
+	keys := make([]string, 0, len(data.Breakdown))
+	for k := range data.Breakdown {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	row := 2
+	for _, k := range keys {
+		f.SetCellValue(name, fmt.Sprintf("A%d", row), k)
+		f.SetCellValue(name, fmt.Sprintf("B%d", row), data.Breakdown[k])
+		row++
+	}
+
+	f.SetCellValue(name, fmt.Sprintf("A%d", row), "total")
+	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.Total)
+	row++
+
+	f.SetCellValue(name, fmt.Sprintf("A%d", row), "commit_count")
+	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.CommitCount)
 
 	return nil
 }

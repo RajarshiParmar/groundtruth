@@ -64,6 +64,7 @@ One file is generated per enabled metric, for example:
 - `activity_timeline_weekly.csv`
 - `activity_timeline_monthly.csv`
 - `merge_summaries.csv`
+- `contribution_score.csv`
 
 ### XLSX
 A single Excel file is generated:
@@ -84,6 +85,19 @@ report.pdf
 Each metric is rendered as a readable section.
 
 Only enabled metrics produce output.
+
+### Terminal summary
+
+A concise summary is always printed to stdout after every successful run:
+
+```
+── groundtruth summary ─────────────────
+  Commit Count         42
+  Commit By Type       chore: 5  docs: 7  feat: 18  fix: 12
+  Lines Changed        added: 1204  net: 817  removed: 387
+  Contribution         84.0  (42 commits)
+─────────────────────────────────────────
+```
 
 ---
 
@@ -129,6 +143,35 @@ output:
 scoring:
   enabled: false
 ```
+
+### Contribution score
+
+When `metrics.contribution_score` is enabled, a weighted composite score is computed from your commits. Default weights are used automatically:
+
+| Type | Weight |
+|---|---|
+| feat | 3 |
+| fix, refactor, perf | 2 |
+| docs, chore, test, style, ci, build | 1 |
+
+To override weights, enable scoring and define your own:
+
+```yaml
+scoring:
+  enabled: true
+  weights:
+    commit_count: 1
+    commit_by_type:
+      feat: 3
+      fix: 2
+      docs: 1
+```
+
+**Validation rules:**
+
+- `scoring.enabled: true` requires `metrics.contribution_score: true`.
+- Only `commit_count` and `commit_by_type.<type>` are valid keys under `weights`; unknown keys are rejected at load time.
+- Weights must be non-negative.
 
 ---
 

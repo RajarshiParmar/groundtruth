@@ -73,7 +73,18 @@ type Output struct {
 
 type Scoring struct {
 	Enabled bool           `yaml:"enabled"`
-	Weights map[string]any `yaml:"weights"`
+	Weights ScoringWeights `yaml:"weights"`
+}
+
+// ScoringWeights is the typed schema for scoring.weights.
+// Unknown fields are rejected at decode time via yaml.v3 KnownFields(true).
+type ScoringWeights struct {
+	// CommitCount is a flat per-commit multiplier applied on top of the
+	// per-type weight. A zero value is treated as 1.0 by the metric.
+	CommitCount float64 `yaml:"commit_count"`
+	// CommitByType overrides the default per-type weights. Missing types
+	// fall back to defaults defined in the metrics package.
+	CommitByType map[string]float64 `yaml:"commit_by_type"`
 }
 
 func Load(path string) (*Config, error) {
@@ -191,8 +202,20 @@ func validate(cfg *Config) error {
 
 	// scoring
 	if cfg.Scoring.Enabled {
-		if len(cfg.Scoring.Weights) == 0 {
+		w := cfg.Scoring.Weights
+		if w.CommitCount == 0 && len(w.CommitByType) == 0 {
 			return fmt.Errorf("scoring.enabled is true but no weights are defined")
+		}
+		if w.CommitCount < 0 {
+			return fmt.Errorf("scoring.weights.commit_count must be non-negative")
+		}
+		for k, v := range w.CommitByType {
+			if v < 0 {
+				return fmt.Errorf("scoring.weights.commit_by_type[%s] must be non-negative", k)
+			}
+		}
+		if !cfg.Metrics.ContributionScore {
+			return fmt.Errorf("scoring.enabled requires metrics.contribution_score to be true")
 		}
 	}
 

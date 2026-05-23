@@ -33,3 +33,11 @@ type MergeSummary struct {
 	CommitCount int
 	Types       map[string]int
 }
+
+// ContributionScore is the typed result emitted by ContributionScoreMetric.
+// Breakdown maps a commit type (e.g. "feat", "fix") to its accumulated score.
+type ContributionScore struct {
+	Total       float64
+	Breakdown   map[string]float64
+	CommitCount int
+}

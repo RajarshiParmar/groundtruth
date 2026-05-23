@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
@@ -39,6 +40,9 @@ func writeMetricCSV(r metrics.Result, dir string) error {
 
 	case []model.MergeSummary:
 		return writeMergeSummaries(r.Name, v, dir)
+
+	case model.ContributionScore:
+		return writeContributionScoreCSV(r.Name, v, dir)
 
 	default:
 		return fmt.Errorf("unsupported metric output for %s", r.Name)
@@ -131,6 +135,34 @@ func writeTimeline(name string, data map[string]map[string]int, dir string) erro
 		w.Flush()
 		f.Close()
 	}
+
+	return nil
+}
+
+func writeContributionScoreCSV(name string, data model.ContributionScore, dir string) error {
+	path := filepath.Join(dir, name+".csv")
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	w.Write([]string{"component", "score"})
+
+	keys := make([]string, 0, len(data.Breakdown))
+	for k := range data.Breakdown {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		w.Write([]string{k, fmt.Sprintf("%.2f", data.Breakdown[k])})
+	}
+
+	w.Write([]string{"total", fmt.Sprintf("%.2f", data.Total)})
+	w.Write([]string{"commit_count", fmt.Sprintf("%d", data.CommitCount)})
 
 	return nil
 }

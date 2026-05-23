@@ -83,6 +83,13 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.ActivityTimelineMetric{})
 			registry.Register(&metrics.MergeSummariesMetric{})
 
+			// Contribution score: typed weights; zero value yields defaults.
+			var scoreWeights config.ScoringWeights
+			if cfg.Scoring.Enabled {
+				scoreWeights = cfg.Scoring.Weights
+			}
+			registry.Register(&metrics.ContributionScoreMetric{Weights: scoreWeights})
+
 			var results []metrics.Result
 
 			if cfg.Metrics.CommitCount {
@@ -121,6 +128,12 @@ func RunCmd() *cobra.Command {
 				}
 			}
 
+			if cfg.Metrics.ContributionScore {
+				if m, ok := registry.Get("contribution_score"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
 			if verbose {
 				for _, r := range results {
 					fmt.Printf("metric %s = %v\n", r.Name, r.Value)
@@ -133,10 +146,10 @@ func RunCmd() *cobra.Command {
 				return nil
 			}
 
+			// Terminal summary
+			report.WriteSummary(results)
+
 			// Reports
-			if err := report.WriteCSV(results, cfg.Output.Directory); err != nil {
-				return err
-			}
 			for _, f := range cfg.Output.Formats {
 				switch f {
 				case "csv":
