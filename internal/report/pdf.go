@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -11,6 +12,10 @@ import (
 )
 
 func WritePDF(results []metrics.Result, outputDir string) error {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(15, 20, 15)
 	pdf.AddPage()
