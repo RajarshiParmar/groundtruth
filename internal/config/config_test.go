@@ -160,3 +160,29 @@ func TestLoad_MergeSummariesRequiresAnalyze(t *testing.T) {
 		t.Errorf("MergeSummaries = false, want true")
 	}
 }
+
+func TestLoad_LastThreeMonths(t *testing.T) {
+	cfg, err := Load(writeConfig(t, strings.Replace(validBase, "last: 30d", "last: 3m", 1)))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TimeRange.Last != "3m" {
+		t.Errorf("Last = %q, want 3m", cfg.TimeRange.Last)
+	}
+}
+
+func TestLoad_OverrideAppliedBeforeValidation(t *testing.T) {
+	cfgYAML := strings.Replace(validBase, "  directory: ./out\n", "", 1)
+
+	if _, err := Load(writeConfig(t, cfgYAML)); err == nil || !strings.Contains(err.Error(), "output.directory") {
+		t.Fatalf("expected output.directory error, got: %v", err)
+	}
+
+	cfg, err := Load(writeConfig(t, cfgYAML), func(c *Config) { c.Output.Directory = "./override" })
+	if err != nil {
+		t.Fatalf("Load with override: %v", err)
+	}
+	if cfg.Output.Directory != "./override" {
+		t.Errorf("Directory = %q, want ./override", cfg.Output.Directory)
+	}
+}

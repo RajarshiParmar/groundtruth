@@ -23,7 +23,7 @@ time_range:
   to: 2025-06-30
 
   # Option B: relative range (comment out from/to if used)
-  # last: 6m   # supported: 30d | 6m | 1y
+  # last: 6m   # supported: 30d | 3m | 6m | 1y
 
 merge_commits:
   # ignore   → exclude merge commits entirely

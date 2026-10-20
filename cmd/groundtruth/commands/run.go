@@ -24,13 +24,13 @@ func RunCmd() *cobra.Command {
 		Short: "Generate appraisal report from git history",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load and validate config
-			cfg, err := config.Load(configPath)
+			cfg, err := config.Load(configPath, func(c *config.Config) {
+				if outputDir != "" {
+					c.Output.Directory = outputDir
+				}
+			})
 			if err != nil {
 				return err
-			}
-
-			if outputDir != "" {
-				cfg.Output.Directory = outputDir
 			}
 
 			if verbose {
@@ -40,9 +40,14 @@ func RunCmd() *cobra.Command {
 				}
 			}
 
-			// Initialize git scanner
-			scanner := git.NewScanner(cfg.Repository.Path)
-			scanner.AnalyzeMerges = cfg.MergeCommits.Mode == "analyze"
+			// Resolve repositories
+			repoPaths, repoWarnings, err := git.ResolveRepos(cfg.Repository.Path, cfg.Repository.BaseDir)
+			for _, w := range repoWarnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
+			}
+			if err != nil {
+				return err
+			}
 
 			// Resolve time range
 			from, to, err := config.TimeRangeToBounds(cfg.TimeRange)
@@ -59,13 +64,23 @@ func RunCmd() *cobra.Command {
 			}
 
 			// Scan commits
-			commits, err := scanner.Scan(from, to, emails)
+			scans := git.ScanRepos(repoPaths, from, to, emails, cfg.MergeCommits.Mode == "analyze")
+
+			commits, scanWarnings, duplicates, err := git.MergeScans(scans)
+			for _, w := range scanWarnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
+			}
 			if err != nil {
 				return err
 			}
 
-			for _, w := range scanner.Warnings {
-				fmt.Fprintln(os.Stderr, "warning:", w)
+			if verbose && len(scans) > 1 {
+				for _, sc := range scans {
+					fmt.Printf("%s: %d commits\n", sc.Path, len(sc.Commits))
+				}
+				if duplicates > 0 {
+					fmt.Printf("skipped %d commits found in more than one repository\n", duplicates)
+				}
 			}
 
 			if cfg.MergeCommits.Mode == "ignore" {

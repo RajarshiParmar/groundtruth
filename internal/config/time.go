@@ -19,19 +19,19 @@ func TimeRangeToBounds(tr TimeRange) (time.Time, time.Time, error) {
 		case "1y":
 			return now.AddDate(-1, 0, 0), now, nil
 		default:
-			return time.Time{}, time.Time{}, fmt.Errorf("unsupported time_range.last value")
+			return time.Time{}, time.Time{}, fmt.Errorf("time_range.last: unsupported value %q", tr.Last)
 		}
 	}
 
 	// Presence and ordering of from/to are checked in validate
 	from, err := time.ParseInLocation("2006-01-02", tr.From, time.Local)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid time_range.from: %q (expected YYYY-MM-DD)", tr.From)
+		return time.Time{}, time.Time{}, fmt.Errorf("time_range.from: invalid date %q (expected YYYY-MM-DD)", tr.From)
 	}
 
 	to, err := time.ParseInLocation("2006-01-02", tr.To, time.Local)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid time_range.to: %q (expected YYYY-MM-DD)", tr.To)
+		return time.Time{}, time.Time{}, fmt.Errorf("time_range.to: invalid date %q (expected YYYY-MM-DD)", tr.To)
 	}
 
 	// Upper bound is exclusive, so include the whole of the "to" day

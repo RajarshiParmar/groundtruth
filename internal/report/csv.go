@@ -13,7 +13,7 @@ import (
 )
 
 func WriteCSV(results []metrics.Result, outputDir string) error {
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := ensureDir(outputDir); err != nil {
 		return err
 	}
 
