@@ -2,7 +2,9 @@ package report
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
@@ -64,22 +66,23 @@ func writeMetricPDF(pdf *gofpdf.Fpdf, r metrics.Result) {
 }
 
 func writeKeyValuePDF(pdf *gofpdf.Fpdf, data map[string]int) {
-	for k, v := range data {
+	for _, k := range slices.Sorted(maps.Keys(data)) {
 		pdf.CellFormat(80, 6, k, "", 0, "", false, 0, "")
-		pdf.CellFormat(0, 6, fmt.Sprintf("%d", v), "", 1, "", false, 0, "")
+		pdf.CellFormat(0, 6, fmt.Sprintf("%d", data[k]), "", 1, "", false, 0, "")
 	}
 }
 
 func writeTimelinePDF(pdf *gofpdf.Fpdf, data map[string]map[string]int) {
-	for period, values := range data {
+	for _, period := range slices.Sorted(maps.Keys(data)) {
 		pdf.SetFont("Arial", "I", 11)
 		pdf.Cell(0, 6, period)
 		pdf.Ln(6)
 		pdf.SetFont("Arial", "", 11)
 
-		for k, v := range values {
+		values := data[period]
+		for _, k := range slices.Sorted(maps.Keys(values)) {
 			pdf.CellFormat(80, 6, k, "", 0, "", false, 0, "")
-			pdf.CellFormat(0, 6, fmt.Sprintf("%d", v), "", 1, "", false, 0, "")
+			pdf.CellFormat(0, 6, fmt.Sprintf("%d", values[k]), "", 1, "", false, 0, "")
 		}
 		pdf.Ln(4)
 	}
