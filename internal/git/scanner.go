@@ -37,7 +37,7 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 	err = iter.ForEach(func(c *object.Commit) error {
 		ts := c.Author.When
 
-		if ts.Before(from) || ts.After(to) {
+		if ts.Before(from) || !ts.Before(to) {
 			return nil
 		}
 
