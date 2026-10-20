@@ -29,6 +29,10 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 
+			if outputDir != "" {
+				cfg.Output.Directory = outputDir
+			}
+
 			if verbose {
 				fmt.Println("config loaded successfully")
 				if outputDir != "" {
