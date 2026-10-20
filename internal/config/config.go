@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -131,33 +130,19 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("time_range: one of from/to or last must be specified")
 	}
 
-	if hasExplicit {
-		if cfg.TimeRange.From == "" || cfg.TimeRange.To == "" {
-			return fmt.Errorf("time_range: both from and to must be set")
-		}
-
-		from, err := time.Parse("2006-01-02", cfg.TimeRange.From)
-		if err != nil {
-			return fmt.Errorf("time_range.from: invalid date %q", cfg.TimeRange.From)
-		}
-
-		to, err := time.Parse("2006-01-02", cfg.TimeRange.To)
-		if err != nil {
-			return fmt.Errorf("time_range.to: invalid date %q", cfg.TimeRange.To)
-		}
-
-		if from.After(to) {
-			return fmt.Errorf("time_range: from must be before or equal to to")
-		}
+	if hasExplicit && (cfg.TimeRange.From == "" || cfg.TimeRange.To == "") {
+		return fmt.Errorf("time_range: both from and to must be set")
 	}
 
-	if hasRelative {
-		switch cfg.TimeRange.Last {
-		case "30d", "6m", "1y":
-			// ok
-		default:
-			return fmt.Errorf("time_range.last: unsupported value %q", cfg.TimeRange.Last)
-		}
+	// Parsing and supported values live in TimeRangeToBounds
+	from, to, err := TimeRangeToBounds(cfg.TimeRange)
+	if err != nil {
+		return err
+	}
+
+	// to is exclusive (the day after time_range.to), so from == to is a one-day range
+	if !from.Before(to) {
+		return fmt.Errorf("time_range: from must be before or equal to to")
 	}
 
 	// merge commits

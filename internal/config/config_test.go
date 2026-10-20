@@ -160,3 +160,13 @@ func TestLoad_MergeSummariesRequiresAnalyze(t *testing.T) {
 		t.Errorf("MergeSummaries = false, want true")
 	}
 }
+
+func TestLoad_LastThreeMonths(t *testing.T) {
+	cfg, err := Load(writeConfig(t, strings.Replace(validBase, "last: 30d", "last: 3m", 1)))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TimeRange.Last != "3m" {
+		t.Errorf("Last = %q, want 3m", cfg.TimeRange.Last)
+	}
+}
