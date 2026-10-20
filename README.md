@@ -13,7 +13,7 @@ It is built for developers who want a **clear, honest summary of their work**, w
 Clone the repository and build locally:
 
 ```bash
-git clone https://github.com/<your-username>/groundtruth
+git clone https://github.com/RajarshiParmar/groundtruth
 cd groundtruth
 go build ./cmd/groundtruth
 ```
@@ -30,10 +30,22 @@ Create a configuration file (see example below), then run:
 ./groundtruth run --config config.example.yaml
 ```
 
-Validate configuration and repository access without generating reports:
+Check the configuration and repository access without scanning history:
+
+```bash
+./groundtruth validate --config config.example.yaml
+```
+
+Scan and compute metrics, but write no reports:
 
 ```bash
 ./groundtruth run --config config.example.yaml --dry-run
+```
+
+Write reports somewhere other than `output.directory`:
+
+```bash
+./groundtruth run --config config.example.yaml --output ./my-report
 ```
 
 Enable verbose output for debugging:
@@ -144,6 +156,33 @@ scoring:
   enabled: false
 ```
 
+### Time range
+
+- `from` / `to` are calendar dates (`YYYY-MM-DD`) in your local time zone. Both days are included, so `from: 2025-01-01` and `to: 2025-01-01` covers that single day.
+- `last` is relative to now. Supported values: `30d`, `3m`, `6m`, `1y`.
+- Use one style or the other, not both.
+
+### Merge commits
+
+| Mode | Behaviour |
+|---|---|
+| `ignore` | Merge commits are left out of every metric. |
+| `include` | Merge commits are counted like any other commit. |
+| `analyze` | Merge commits are counted, and each one records the commits it brought in. Required by `metrics.merge_summaries`. |
+
+A merge summary counts only the merged commits that are themselves in the report (your authors, inside the time range). A branch that is merged more than once is attributed only the commits that are new in each merge.
+
+Merge commits never contribute to `lines_changed` or `files_changed`; those changes are already counted on the commits that made them.
+
+### Scanning several repositories
+
+With `repository.base_dir: true`, `path` is treated as a folder of checkouts:
+
+- Every directory containing `.git` is scanned, including linked worktrees and submodules (where `.git` is a file).
+- Repositories nested inside another repository (vendored clones, test fixtures) are not scanned separately.
+- Directories that cannot be read, and repositories without commits, are skipped with a warning on stderr. The run fails only if no usable repository is found.
+- A commit that appears in more than one repository (forks, backup clones) is counted once.
+
 ### Contribution score
 
 When `metrics.contribution_score` is enabled, a weighted composite score is computed from your commits. Default weights are used automatically:
@@ -170,6 +209,7 @@ scoring:
 **Validation rules:**
 
 - `scoring.enabled: true` requires `metrics.contribution_score: true`.
+- `metrics.merge_summaries: true` requires `merge_commits.mode: analyze`.
 - Only `commit_count` and `commit_by_type.<type>` are valid keys under `weights`; unknown keys are rejected at load time.
 - Weights must be non-negative.
 

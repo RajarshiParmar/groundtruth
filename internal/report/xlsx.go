@@ -2,7 +2,9 @@ package report
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/xuri/excelize/v2"
@@ -78,16 +80,17 @@ func writeKeyValueSheet(f *excelize.File, name string, data map[string]int) erro
 	f.SetCellValue(name, "B1", "count")
 
 	row := 2
-	for k, v := range data {
+	for _, k := range slices.Sorted(maps.Keys(data)) {
 		f.SetCellValue(name, fmt.Sprintf("A%d", row), k)
-		f.SetCellValue(name, fmt.Sprintf("B%d", row), v)
+		f.SetCellValue(name, fmt.Sprintf("B%d", row), data[k])
 		row++
 	}
 	return nil
 }
 
 func writeTimelineSheets(f *excelize.File, base string, data map[string]map[string]int) error {
-	for period, values := range data {
+	for _, period := range slices.Sorted(maps.Keys(data)) {
+		values := data[period]
 		sheet := fmt.Sprintf("%s_%s", base, period)
 		if _, err := f.NewSheet(sheet); err != nil {
 			return err
@@ -96,9 +99,9 @@ func writeTimelineSheets(f *excelize.File, base string, data map[string]map[stri
 		f.SetCellValue(sheet, "B1", "count")
 
 		row := 2
-		for k, v := range values {
+		for _, k := range slices.Sorted(maps.Keys(values)) {
 			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), k)
-			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), v)
+			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), values[k])
 			row++
 		}
 	}

@@ -21,3 +21,16 @@ Thanks for your interest in contributing.
 
 - Prefer clarity over cleverness
 - Keep layers separated (git → classify → metrics → report)
+
+## Testing
+
+Run the full suite before opening a pull request:
+
+```bash
+go vet ./...
+go test -race ./...
+```
+
+- Tests that need a repository build a real one in a temp directory with go-git (see `internal/git/testrepo_test.go`), so no fixtures are checked in and your own repositories are never touched.
+- The linked-worktree test uses the `git` CLI and is skipped when it is not installed.
+- New metrics, report formats and config rules should come with tests in the same package.

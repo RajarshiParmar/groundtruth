@@ -3,9 +3,10 @@ package report
 import (
 	"encoding/csv"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
@@ -49,27 +50,30 @@ func writeMetricCSV(r metrics.Result, dir string) error {
 	}
 }
 
-func writeMergeSummaries(name string, data []model.MergeSummary, dir string) error {
-	path := filepath.Join(dir, name+".csv")
+// writeRows writes a whole CSV file, reporting write, flush and close errors
+// so a full disk cannot leave a truncated report behind silently.
+func writeRows(path string, rows [][]string) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 
-	w := csv.NewWriter(f)
-	defer w.Flush()
+	if err := csv.NewWriter(f).WriteAll(rows); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
 
-	w.Write([]string{
-		"hash",
-		"timestamp",
-		"message",
-		"commit_count",
-		"types",
-	})
+func writeMergeSummaries(name string, data []model.MergeSummary, dir string) error {
+	rows := [][]string{{"hash", "timestamp", "message", "commit_count", "types"}}
 
 	for _, m := range data {
-		w.Write([]string{
+		rows = append(rows, []string{
 			m.Hash,
 			m.Timestamp.Format(time.RFC3339),
 			m.Message,
@@ -78,91 +82,51 @@ func writeMergeSummaries(name string, data []model.MergeSummary, dir string) err
 		})
 	}
 
-	return nil
+	return writeRows(filepath.Join(dir, name+".csv"), rows)
 }
 
 func writeSingleValue(name string, value int, dir string) error {
-	path := filepath.Join(dir, name+".csv")
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	w := csv.NewWriter(f)
-	defer w.Flush()
-
-	w.Write([]string{"metric", "value"})
-	w.Write([]string{name, fmt.Sprintf("%d", value)})
-
-	return nil
+	return writeRows(filepath.Join(dir, name+".csv"), [][]string{
+		{"metric", "value"},
+		{name, fmt.Sprintf("%d", value)},
+	})
 }
 
 func writeKeyValue(name string, data map[string]int, dir string) error {
-	path := filepath.Join(dir, name+".csv")
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	w := csv.NewWriter(f)
-	defer w.Flush()
-
-	w.Write([]string{"key", "count"})
-	for k, v := range data {
-		w.Write([]string{k, fmt.Sprintf("%d", v)})
-	}
-
-	return nil
+	return writeRows(filepath.Join(dir, name+".csv"), countRows("key", data))
 }
 
 func writeTimeline(name string, data map[string]map[string]int, dir string) error {
-	for period, values := range data {
+	for _, period := range slices.Sorted(maps.Keys(data)) {
 		path := filepath.Join(dir, fmt.Sprintf("%s_%s.csv", name, period))
-		f, err := os.Create(path)
-		if err != nil {
+		if err := writeRows(path, countRows("period", data[period])); err != nil {
 			return err
 		}
-
-		w := csv.NewWriter(f)
-		w.Write([]string{"period", "count"})
-
-		for k, v := range values {
-			w.Write([]string{k, fmt.Sprintf("%d", v)})
-		}
-
-		w.Flush()
-		f.Close()
 	}
 
 	return nil
 }
 
+// countRows renders a count map as a header plus one row per key, sorted by key
+func countRows(keyHeader string, data map[string]int) [][]string {
+	rows := [][]string{{keyHeader, "count"}}
+	for _, k := range slices.Sorted(maps.Keys(data)) {
+		rows = append(rows, []string{k, fmt.Sprintf("%d", data[k])})
+	}
+	return rows
+}
+
 func writeContributionScoreCSV(name string, data model.ContributionScore, dir string) error {
-	path := filepath.Join(dir, name+".csv")
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	rows := [][]string{{"component", "score"}}
 
-	w := csv.NewWriter(f)
-	defer w.Flush()
-
-	w.Write([]string{"component", "score"})
-
-	keys := make([]string, 0, len(data.Breakdown))
-	for k := range data.Breakdown {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		w.Write([]string{k, fmt.Sprintf("%.2f", data.Breakdown[k])})
+	for _, k := range slices.Sorted(maps.Keys(data.Breakdown)) {
+		rows = append(rows, []string{k, fmt.Sprintf("%.2f", data.Breakdown[k])})
 	}
 
-	w.Write([]string{"total", fmt.Sprintf("%.2f", data.Total)})
-	w.Write([]string{"commit_count", fmt.Sprintf("%d", data.CommitCount)})
+	rows = append(rows,
+		[]string{"total", fmt.Sprintf("%.2f", data.Total)},
+		[]string{"commit_count", fmt.Sprintf("%d", data.CommitCount)},
+	)
 
-	return nil
+	return writeRows(filepath.Join(dir, name+".csv"), rows)
 }
