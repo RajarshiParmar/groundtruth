@@ -2,7 +2,6 @@ package report
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 
@@ -13,7 +12,7 @@ import (
 )
 
 func WriteXLSX(results []metrics.Result, outputDir string) error {
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := ensureDir(outputDir); err != nil {
 		return err
 	}
 
