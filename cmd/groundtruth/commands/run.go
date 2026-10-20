@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/RajarshiParmar/groundtruth/internal/classify"
 	"github.com/RajarshiParmar/groundtruth/internal/config"
@@ -56,6 +57,10 @@ func RunCmd() *cobra.Command {
 			commits, err := scanner.Scan(from, to, emails)
 			if err != nil {
 				return err
+			}
+
+			for _, w := range scanner.Warnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
 			}
 
 			if verbose {
