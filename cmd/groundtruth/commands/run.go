@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/RajarshiParmar/groundtruth/internal/classify"
 	"github.com/RajarshiParmar/groundtruth/internal/config"
@@ -28,6 +29,10 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 
+			if outputDir != "" {
+				cfg.Output.Directory = outputDir
+			}
+
 			if verbose {
 				fmt.Println("config loaded successfully")
 				if outputDir != "" {
@@ -37,6 +42,7 @@ func RunCmd() *cobra.Command {
 
 			// Initialize git scanner
 			scanner := git.NewScanner(cfg.Repository.Path)
+			scanner.AnalyzeMerges = cfg.MergeCommits.Mode == "analyze"
 
 			// Resolve time range
 			from, to, err := config.TimeRangeToBounds(cfg.TimeRange)
@@ -56,6 +62,20 @@ func RunCmd() *cobra.Command {
 			commits, err := scanner.Scan(from, to, emails)
 			if err != nil {
 				return err
+			}
+
+			for _, w := range scanner.Warnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
+			}
+
+			if cfg.MergeCommits.Mode == "ignore" {
+				kept := commits[:0]
+				for _, c := range commits {
+					if !c.IsMerge {
+						kept = append(kept, c)
+					}
+				}
+				commits = kept
 			}
 
 			if verbose {
@@ -122,7 +142,8 @@ func RunCmd() *cobra.Command {
 				}
 			}
 
-			if cfg.Metrics.MergeSummaries {
+			// Merge summaries need merge analysis
+			if cfg.Metrics.MergeSummaries && cfg.MergeCommits.Mode == "analyze" {
 				if m, ok := registry.Get("merge_summaries"); ok {
 					results = append(results, m.Compute(classified))
 				}

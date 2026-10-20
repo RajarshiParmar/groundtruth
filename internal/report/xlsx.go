@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -12,15 +13,24 @@ import (
 )
 
 func WriteXLSX(results []metrics.Result, outputDir string) error {
-	f := excelize.NewFile()
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
 
-	// Remove default sheet
-	f.DeleteSheet("Sheet1")
+	f := excelize.NewFile()
 
 	for _, r := range results {
 		if err := writeMetricSheet(f, r); err != nil {
 			return err
 		}
+	}
+
+	// Remove the default sheet once real sheets exist (excelize keeps the last one)
+	if len(f.GetSheetList()) > 1 {
+		if err := f.DeleteSheet("Sheet1"); err != nil {
+			return err
+		}
+		f.SetActiveSheet(0)
 	}
 
 	path := filepath.Join(outputDir, "report.xlsx")
@@ -51,7 +61,9 @@ func writeMetricSheet(f *excelize.File, r metrics.Result) error {
 }
 
 func writeSingleValueSheet(f *excelize.File, name string, value int) error {
-	f.NewSheet(name)
+	if _, err := f.NewSheet(name); err != nil {
+		return err
+	}
 	f.SetCellValue(name, "A1", "metric")
 	f.SetCellValue(name, "B1", "value")
 	f.SetCellValue(name, "A2", name)
@@ -60,7 +72,9 @@ func writeSingleValueSheet(f *excelize.File, name string, value int) error {
 }
 
 func writeKeyValueSheet(f *excelize.File, name string, data map[string]int) error {
-	f.NewSheet(name)
+	if _, err := f.NewSheet(name); err != nil {
+		return err
+	}
 	f.SetCellValue(name, "A1", "key")
 	f.SetCellValue(name, "B1", "count")
 
@@ -76,7 +90,9 @@ func writeKeyValueSheet(f *excelize.File, name string, data map[string]int) erro
 func writeTimelineSheets(f *excelize.File, base string, data map[string]map[string]int) error {
 	for period, values := range data {
 		sheet := fmt.Sprintf("%s_%s", base, period)
-		f.NewSheet(sheet)
+		if _, err := f.NewSheet(sheet); err != nil {
+			return err
+		}
 		f.SetCellValue(sheet, "A1", "period")
 		f.SetCellValue(sheet, "B1", "count")
 
@@ -91,7 +107,9 @@ func writeTimelineSheets(f *excelize.File, base string, data map[string]map[stri
 }
 
 func writeMergeSummarySheet(f *excelize.File, name string, data []model.MergeSummary) error {
-	f.NewSheet(name)
+	if _, err := f.NewSheet(name); err != nil {
+		return err
+	}
 
 	headers := []string{
 		"hash",
@@ -120,7 +138,9 @@ func writeMergeSummarySheet(f *excelize.File, name string, data []model.MergeSum
 }
 
 func writeContributionScoreSheet(f *excelize.File, name string, data model.ContributionScore) error {
-	f.NewSheet(name)
+	if _, err := f.NewSheet(name); err != nil {
+		return err
+	}
 	f.SetCellValue(name, "A1", "component")
 	f.SetCellValue(name, "B1", "score")
 

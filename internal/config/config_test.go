@@ -144,3 +144,19 @@ func TestLoad_ScoringDisabledByDefault(t *testing.T) {
 		t.Errorf("Scoring.Enabled = true, want false")
 	}
 }
+
+func TestLoad_MergeSummariesRequiresAnalyze(t *testing.T) {
+	cfgYAML := strings.Replace(validBase, "commit_count: true", "commit_count: true\n  merge_summaries: true", 1)
+	_, err := Load(writeConfig(t, cfgYAML))
+	if err == nil || !strings.Contains(err.Error(), "merge_commits.mode: analyze") {
+		t.Fatalf("expected merge_summaries mode error, got: %v", err)
+	}
+
+	cfg, err := Load(writeConfig(t, strings.Replace(cfgYAML, "mode: ignore", "mode: analyze", 1)))
+	if err != nil {
+		t.Fatalf("Load with analyze: %v", err)
+	}
+	if !cfg.Metrics.MergeSummaries {
+		t.Errorf("MergeSummaries = false, want true")
+	}
+}

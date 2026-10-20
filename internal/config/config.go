@@ -168,6 +168,10 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("merge_commits.mode must be one of ignore, include, analyze")
 	}
 
+	if cfg.Metrics.MergeSummaries && cfg.MergeCommits.Mode != "analyze" {
+		return fmt.Errorf("metrics.merge_summaries requires merge_commits.mode: analyze")
+	}
+
 	// metrics
 	if !(cfg.Metrics.CommitCount ||
 		cfg.Metrics.CommitByType ||

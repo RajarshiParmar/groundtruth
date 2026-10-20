@@ -23,15 +23,17 @@ func TimeRangeToBounds(tr TimeRange) (time.Time, time.Time, error) {
 		}
 	}
 
-	from, err := time.Parse("2006-01-02", tr.From)
+	// Presence and ordering of from/to are checked in validate
+	from, err := time.ParseInLocation("2006-01-02", tr.From, time.Local)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid time_range.from")
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid time_range.from: %q (expected YYYY-MM-DD)", tr.From)
 	}
 
-	to, err := time.Parse("2006-01-02", tr.To)
+	to, err := time.ParseInLocation("2006-01-02", tr.To, time.Local)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("invalid time_range.to")
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid time_range.to: %q (expected YYYY-MM-DD)", tr.To)
 	}
 
-	return from, to, nil
+	// Upper bound is exclusive, so include the whole of the "to" day
+	return from, to.AddDate(0, 0, 1), nil
 }

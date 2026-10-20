@@ -1,6 +1,10 @@
 package metrics
 
-import "github.com/RajarshiParmar/groundtruth/internal/model"
+import (
+	"strings"
+
+	"github.com/RajarshiParmar/groundtruth/internal/model"
+)
 
 type MergeSummariesMetric struct{}
 
@@ -9,10 +13,14 @@ func (m *MergeSummariesMetric) Name() string {
 }
 
 func (m *MergeSummariesMetric) Compute(commits []model.ClassifiedCommit) Result {
+	byHash := make(map[string]model.ClassifiedCommit, len(commits))
+	for _, c := range commits {
+		byHash[c.Hash] = c
+	}
+
 	var summaries []model.MergeSummary
 
-	// Walk commits in order; merge commits act as boundaries
-	for i, c := range commits {
+	for _, c := range commits {
 		if !c.IsMerge {
 			continue
 		}
@@ -20,22 +28,25 @@ func (m *MergeSummariesMetric) Compute(commits []model.ClassifiedCommit) Result 
 		typeCounts := make(map[string]int)
 		childCount := 0
 
-		// Look backwards until previous merge or beginning
-		for j := i - 1; j >= 0; j-- {
-			if commits[j].IsMerge {
-				break
+		// Only count merged commits that are in the report (author and time range)
+		for _, h := range c.MergedHashes {
+			child, ok := byHash[h]
+			if !ok || child.IsMerge {
+				continue
 			}
 			childCount++
-			t := commits[j].Type
+			t := child.Type
 			if t == "" {
 				t = "unknown"
 			}
 			typeCounts[t]++
 		}
 
+		header, _, _ := strings.Cut(c.Message, "\n")
+
 		summaries = append(summaries, model.MergeSummary{
 			Hash:        c.Hash,
-			Message:     firstLine(c.Message),
+			Message:     header,
 			Timestamp:   c.Timestamp,
 			CommitCount: childCount,
 			Types:       typeCounts,
@@ -46,13 +57,4 @@ func (m *MergeSummariesMetric) Compute(commits []model.ClassifiedCommit) Result 
 		Name:  m.Name(),
 		Value: summaries,
 	}
-}
-
-func firstLine(msg string) string {
-	for i, c := range msg {
-		if c == '\n' {
-			return msg[:i]
-		}
-	}
-	return msg
 }

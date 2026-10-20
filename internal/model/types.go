@@ -16,6 +16,9 @@ type Commit struct {
 	LinesRemoved int
 
 	FilesChanged []string
+
+	// MergedHashes lists the commits a merge brought in (merge analysis only)
+	MergedHashes []string
 }
 
 type ClassifiedCommit struct {
