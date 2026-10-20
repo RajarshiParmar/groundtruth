@@ -86,7 +86,9 @@ type ScoringWeights struct {
 	CommitByType map[string]float64 `yaml:"commit_by_type"`
 }
 
-func Load(path string) (*Config, error) {
+// Load reads and validates a config file. Overrides (e.g. from CLI flags)
+// are applied after decoding and before validation.
+func Load(path string, overrides ...func(*Config)) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read config file: %w", err)
@@ -98,6 +100,10 @@ func Load(path string) (*Config, error) {
 
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("Invalid config file: %w", err)
+	}
+
+	for _, o := range overrides {
+		o(&cfg)
 	}
 
 	if err := validate(&cfg); err != nil {

@@ -24,13 +24,13 @@ func RunCmd() *cobra.Command {
 		Short: "Generate appraisal report from git history",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load and validate config
-			cfg, err := config.Load(configPath)
+			cfg, err := config.Load(configPath, func(c *config.Config) {
+				if outputDir != "" {
+					c.Output.Directory = outputDir
+				}
+			})
 			if err != nil {
 				return err
-			}
-
-			if outputDir != "" {
-				cfg.Output.Directory = outputDir
 			}
 
 			if verbose {
