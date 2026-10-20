@@ -17,7 +17,7 @@ func ValidateRepo(path string) error {
 		return fmt.Errorf("repository path is not a directory: %s", path)
 	}
 
-	repo, err := git.PlainOpen(path)
+	repo, err := openRepo(path)
 	if err != nil {
 		return fmt.Errorf("not a git repository: %s", path)
 	}
@@ -44,29 +44,54 @@ func ValidateRepo(path string) error {
 	return nil
 }
 
-func ValidateBaseDir(path string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("repository path does not exist: %s", path)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("repository path is not a directory: %s", path)
+// ResolveRepos returns the repositories to scan. For a single repository the
+// path must be valid. With baseDir, every checkout found under path is
+// validated; unusable ones are skipped and described in warnings, and an
+// error is returned only if none are usable.
+func ResolveRepos(path string, baseDir bool) (repos []string, warnings []string, err error) {
+	if !baseDir {
+		if err := ValidateRepo(path); err != nil {
+			return nil, nil, err
+		}
+		return []string{path}, nil, nil
 	}
 
-	repos, err := DiscoverGitRepos(path)
+	info, err := os.Stat(path)
 	if err != nil {
-		return err
+		return nil, nil, fmt.Errorf("repository path does not exist: %s", path)
+	}
+	if !info.IsDir() {
+		return nil, nil, fmt.Errorf("repository path is not a directory: %s", path)
+	}
+
+	found, skipped, err := DiscoverGitRepos(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, s := range skipped {
+		warnings = append(warnings, "skipped unreadable directory "+s)
+	}
+
+	if len(found) == 0 {
+		return nil, warnings, fmt.Errorf("no git repositories found under: %s", path)
+	}
+
+	for _, r := range found {
+		if err := ValidateRepo(r); err != nil {
+			warnings = append(warnings, "skipped "+err.Error())
+			continue
+		}
+		repos = append(repos, r)
 	}
 
 	if len(repos) == 0 {
-		return fmt.Errorf("no git repositories found under: %s", path)
+		return nil, warnings, fmt.Errorf("no usable git repositories found under: %s", path)
 	}
 
-	for _, r := range repos {
-		if err := ValidateRepo(r); err != nil {
-			return err
-		}
-	}
+	return repos, warnings, nil
+}
 
-	return nil
+// openRepo opens a checkout, including linked worktrees whose .git is a file
+func openRepo(path string) (*git.Repository, error) {
+	return git.PlainOpenWithOptions(path, &git.PlainOpenOptions{EnableDotGitCommonDir: true})
 }

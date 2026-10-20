@@ -28,7 +28,7 @@ func NewScanner(path string) *Scanner {
 // Scan returns commits authored in [from, to) by one of allowedEmails
 // (all authors if empty), ordered oldest → newest.
 func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]model.Commit, error) {
-	repo, err := git.PlainOpen(s.RepoPath)
+	repo, err := openRepo(s.RepoPath)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/RajarshiParmar/groundtruth/internal/config"
 	"github.com/RajarshiParmar/groundtruth/internal/git"
@@ -25,14 +26,16 @@ func ValidateCmd() *cobra.Command {
 				return err
 			}
 
+			repos, warnings, err := git.ResolveRepos(cfg.Repository.Path, cfg.Repository.BaseDir)
+			for _, w := range warnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
+			}
+			if err != nil {
+				return fmt.Errorf("git: %w", err)
+			}
+
 			if cfg.Repository.BaseDir {
-				if err := git.ValidateBaseDir(cfg.Repository.Path); err != nil {
-					return fmt.Errorf("git: %w", err)
-				}
-			} else {
-				if err := git.ValidateRepo(cfg.Repository.Path); err != nil {
-					return fmt.Errorf("git: %w", err)
-				}
+				fmt.Printf("found %d usable repositories\n", len(repos))
 			}
 			fmt.Println("configuration and repository are valid")
 
