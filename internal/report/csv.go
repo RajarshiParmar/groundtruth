@@ -166,29 +166,3 @@ func writeContributionScoreCSV(name string, data model.ContributionScore, dir st
 
 	return nil
 }
-
-func writeList(name string, data []interface{}, dir string) error {
-	path := filepath.Join(dir, name+".csv")
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	w := csv.NewWriter(f)
-	defer w.Flush()
-
-	w.Write([]string{"hash", "message", "commit_count", "types"})
-
-	for _, item := range data {
-		m := item.(map[string]interface{})
-		w.Write([]string{
-			m["hash"].(string),
-			m["message"].(string),
-			fmt.Sprintf("%d", m["commit_count"].(int)),
-			fmt.Sprintf("%v", m["types"]),
-		})
-	}
-
-	return nil
-}
