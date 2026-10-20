@@ -1,10 +1,14 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/RajarshiParmar/groundtruth/internal/model"
 )
 
 func mkdir(t *testing.T, parts ...string) string {
@@ -67,5 +71,41 @@ func TestDiscoverGitRepos_SkipsUnreadableDirs(t *testing.T) {
 	}
 	if len(skipped) != 1 {
 		t.Errorf("skipped = %v, want the locked directory", skipped)
+	}
+}
+
+func TestMergeScans(t *testing.T) {
+	t1 := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	t2 := t1.Add(time.Hour)
+
+	scans := []RepoScan{
+		{Path: "a", Commits: []model.Commit{{Hash: "h2", Timestamp: t2}, {Hash: "h1", Timestamp: t1}}},
+		{Path: "a-fork", Commits: []model.Commit{{Hash: "h1", Timestamp: t1}}},
+		{Path: "broken", Err: errors.New("reference not found")},
+	}
+
+	commits, warnings, duplicates, err := MergeScans(scans)
+	if err != nil {
+		t.Fatalf("MergeScans: %v", err)
+	}
+	if len(commits) != 2 || commits[0].Hash != "h1" || commits[1].Hash != "h2" {
+		t.Errorf("commits = %v, want h1, h2 in time order", commits)
+	}
+	if duplicates != 1 {
+		t.Errorf("duplicates = %d, want 1", duplicates)
+	}
+	if len(warnings) != 1 {
+		t.Errorf("warnings = %v, want one for the broken repo", warnings)
+	}
+}
+
+func TestMergeScans_AllFailed(t *testing.T) {
+	if _, _, _, err := MergeScans([]RepoScan{{Path: "only", Err: errors.New("boom")}}); err == nil {
+		t.Error("single failed repo: want error")
+	}
+
+	scans := []RepoScan{{Path: "a", Err: errors.New("x")}, {Path: "b", Err: errors.New("y")}}
+	if _, _, _, err := MergeScans(scans); err == nil {
+		t.Error("all repos failed: want error")
 	}
 }
