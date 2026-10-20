@@ -8,7 +8,7 @@ import (
 )
 
 var conventionalRegex = regexp.MustCompile(
-	`^(?P<type>[a-zA-Z]+)(\((?P<scope>[^)]+)\))?(!)?:\s+(?P<message>.+)`,
+	`^(?P<type>[a-zA-Z]+)(\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s+(?P<message>.+)`,
 )
 
 func NewConventionalClassifier() Classifier {
@@ -37,15 +37,13 @@ func (c *conventionalClassifier) Classify(commit model.Commit) model.ClassifiedC
 			result.Type = strings.ToLower(matches[i])
 		case "scope":
 			result.Scope = strings.ToLower(matches[i])
+		case "breaking":
+			result.Breaking = matches[i] != ""
 		}
 	}
 
-	if strings.Contains(header, "!:") {
-		result.Breaking = true
-	}
-
 	for _, line := range lines[1:] {
-		if strings.HasPrefix(line, "BREAKING CHANGE") {
+		if strings.HasPrefix(line, "BREAKING CHANGE") || strings.HasPrefix(line, "BREAKING-CHANGE") {
 			result.Breaking = true
 		}
 	}
