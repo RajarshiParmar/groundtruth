@@ -25,6 +25,7 @@ func (c *conventionalClassifier) Classify(commit model.Commit) model.ClassifiedC
 
 	lines := strings.Split(commit.Message, "\n")
 	header := strings.TrimSpace(lines[0])
+	result.Subject = header
 
 	matches := conventionalRegex.FindStringSubmatch(header)
 	if matches == nil {
@@ -39,6 +40,8 @@ func (c *conventionalClassifier) Classify(commit model.Commit) model.ClassifiedC
 			result.Scope = strings.ToLower(matches[i])
 		case "breaking":
 			result.Breaking = matches[i] != ""
+		case "message":
+			result.Subject = matches[i]
 		}
 	}
 

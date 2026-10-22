@@ -60,3 +60,21 @@ func TestConventionalKeepsCommit(t *testing.T) {
 		t.Errorf("Commit = %+v, want %+v", got.Commit, in)
 	}
 }
+
+func TestConventionalSubject(t *testing.T) {
+	cases := map[string]string{
+		"feat: add login":             "add login",
+		"fix(auth)!: drop v1\n\nbody": "drop v1",
+		"feat: crlf\r\n\r\nbody":      "crlf",
+		"  docs: padded  ":            "padded",
+		"Merge branch 'x' into dev":   "Merge branch 'x' into dev",
+		"":                            "",
+	}
+
+	c := NewConventionalClassifier()
+	for msg, want := range cases {
+		if got := c.Classify(model.Commit{Message: msg}).Subject; got != want {
+			t.Errorf("%q: Subject = %q, want %q", msg, got, want)
+		}
+	}
+}
