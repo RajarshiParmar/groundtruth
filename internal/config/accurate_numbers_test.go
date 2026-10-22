@@ -135,3 +135,35 @@ func TestExampleConfig_ExcludePaths(t *testing.T) {
 		t.Error("example exclude_paths match svc/main.go")
 	}
 }
+
+func TestLoad_IdentityMailmapDirectory(t *testing.T) {
+	dir := t.TempDir()
+	_, err := Load(writeConfig(t, withIdentity("  mailmap: "+dir+"\n")))
+	if err == nil || err.Error() != "identity.mailmap: "+dir+" is not a regular file" {
+		t.Errorf("directory: error %v", err)
+	}
+}
+
+// Authors with names but no emails match everyone, so co_authored does nothing
+func TestLoad_CoAuthoredWarningNoEmails(t *testing.T) {
+	const warning = "identity.co_authored has no effect without identity.authors: every author already counts."
+	namesOnly := strings.Replace(validBase, "  authors:\n    - name: x\n      email: x@y.z\n", "  co_authored: true\n  authors:\n    - name: x\n", 1)
+	cfg, err := Load(writeConfig(t, namesOnly))
+	if err != nil || !slices.Contains(cfg.Warnings, warning) {
+		t.Errorf("err %v, Warnings %q", err, cfg.Warnings)
+	}
+}
+
+func TestLoad_IdentityMailmapUnreadable(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can read any file")
+	}
+	file := filepath.Join(t.TempDir(), "x")
+	if err := os.WriteFile(file, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(writeConfig(t, withIdentity("  mailmap: "+file+"\n")))
+	if err == nil || !strings.HasPrefix(err.Error(), "identity.mailmap: ") || !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("unreadable: error %v", err)
+	}
+}

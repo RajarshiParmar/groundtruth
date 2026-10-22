@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -186,13 +187,21 @@ func validate(cfg *Config) error {
 		if err != nil {
 			return fmt.Errorf("identity.mailmap: %w", err)
 		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("identity.mailmap: %w", err)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("identity.mailmap: %s is not a regular file", path)
+		}
 		f, err := os.Open(path)
 		if err != nil {
 			return fmt.Errorf("identity.mailmap: %w", err)
 		}
 		f.Close()
 	}
-	if cfg.Identity.CoAuthored && len(cfg.Identity.Authors) == 0 {
+	// Authors without emails match everyone, like no authors at all
+	if cfg.Identity.CoAuthored && !slices.ContainsFunc(cfg.Identity.Authors, func(a Author) bool { return a.Email != "" }) {
 		cfg.Warnings = append(cfg.Warnings, "identity.co_authored has no effect without identity.authors: every author already counts.")
 	}
 
