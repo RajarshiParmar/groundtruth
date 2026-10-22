@@ -305,8 +305,9 @@ Three options keep the numbers close to the work you did by hand.
 
 - Each repository's `.mailmap` is read from its root (or from `HEAD` in a bare repository), in git's format.
 - `identity.mailmap` is an optional personal mailmap for every repository; `~/` is expanded to your home directory. It is read after the repository's file and wins where they disagree.
-- An author email counts if it, or the email the mailmaps map it to, is listed in `identity.authors`. Emails are compared case-insensitively.
+- An author email counts if it, or the email the mailmaps map it to, is listed in `identity.authors`. Emails and mailmap names are compared case-insensitively, as git does.
 - Lines the parser cannot read are skipped with a warning naming the file and line.
+- Because a repository's `.mailmap` is always read and emails ignore case, an existing config can count more of your commits after upgrading, even without any of the new keys.
 
 **`identity.co_authored: true`** credits commits where you are named in a `Co-authored-by:` trailer but someone else is the author:
 
