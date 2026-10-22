@@ -125,7 +125,11 @@ func RunCmd() *cobra.Command {
 			earlier, _ = splitByTime(earlier, earlierTo)
 
 			if verbose {
-				fmt.Printf("scanned %d commits\n", len(commits))
+				if cfg.Compare.Enabled() {
+					fmt.Printf("scanned %d commits (%d more in the earlier period)\n", len(commits), len(earlier))
+				} else {
+					fmt.Printf("scanned %d commits\n", len(commits))
+				}
 			}
 
 			classified := classifyAll(commits)
