@@ -45,6 +45,9 @@ func writeMetricCSV(r metrics.Result, dir string) error {
 	case model.ContributionScore:
 		return writeContributionScoreCSV(r.Name, v, dir)
 
+	case model.Highlights:
+		return writeRows(filepath.Join(dir, r.Name+".csv"), highlightRows(v))
+
 	default:
 		return fmt.Errorf("unsupported metric output for %s", r.Name)
 	}

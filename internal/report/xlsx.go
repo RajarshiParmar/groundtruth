@@ -56,6 +56,9 @@ func writeMetricSheet(f *excelize.File, r metrics.Result) error {
 	case model.ContributionScore:
 		return writeContributionScoreSheet(f, r.Name, v)
 
+	case model.Highlights:
+		return writeHighlightsSheet(f, r.Name, v)
+
 	default:
 		return fmt.Errorf("unsupported metric output for %s", r.Name)
 	}
@@ -165,6 +168,34 @@ func writeContributionScoreSheet(f *excelize.File, name string, data model.Contr
 
 	f.SetCellValue(name, fmt.Sprintf("A%d", row), "commit_count")
 	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.CommitCount)
+
+	return nil
+}
+
+func writeHighlightsSheet(f *excelize.File, name string, data model.Highlights) error {
+	if _, err := f.NewSheet(name); err != nil {
+		return err
+	}
+
+	for i, row := range highlightRows(data) {
+		cell, _ := excelize.CoordinatesToCellName(1, i+1)
+		values := make([]any, len(row))
+		for j, v := range row {
+			values[j] = v
+		}
+		if err := f.SetSheetRow(name, cell, &values); err != nil {
+			return err
+		}
+	}
+
+	// Write breaking as a real boolean so spreadsheet filters work on it
+	row := 2
+	for _, g := range data.Groups {
+		for _, it := range g.Items {
+			f.SetCellValue(name, fmt.Sprintf("D%d", row), it.Breaking)
+			row++
+		}
+	}
 
 	return nil
 }
