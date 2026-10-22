@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.12
 
 require (
+	github.com/bmatcuk/doublestar/v4 v4.10.3
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/spf13/cobra v1.10.2

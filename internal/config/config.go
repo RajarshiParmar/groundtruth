@@ -7,6 +7,8 @@ import (
 	"regexp"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/RajarshiParmar/groundtruth/internal/paths"
 )
 
 type Config struct {
@@ -21,6 +23,7 @@ type Config struct {
 	Scoring      Scoring      `yaml:"scoring"`
 	Highlights   Highlights   `yaml:"highlights"`
 	Tickets      Tickets      `yaml:"tickets"`
+	ExcludePaths []string     `yaml:"exclude_paths"`
 
 	// Warnings collects problems that do not stop the config from loading
 	Warnings []string `yaml:"-"`
@@ -171,6 +174,11 @@ func validate(cfg *Config) error {
 	// to is exclusive (the day after time_range.to), so from == to is a one-day range
 	if !from.Before(to) {
 		return fmt.Errorf("time_range: from must be before or equal to to")
+	}
+
+	// exclude paths
+	if _, err := paths.NewExcluder(cfg.ExcludePaths); err != nil {
+		return err
 	}
 
 	// merge commits
