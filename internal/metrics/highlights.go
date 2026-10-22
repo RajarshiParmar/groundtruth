@@ -40,18 +40,12 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 		limit = DefaultHighlightsPerScope
 	}
 
-	repos := make(map[string]bool)
-	for _, c := range commits {
-		if !c.IsMerge && c.Repo != "" {
-			repos[c.Repo] = true
-		}
-	}
-
 	h := model.Highlights{
 		SummaryLimit:       limit,
 		IncludesUnknown:    slices.Contains(types, "unknown"),
 		IncludesCoAuthored: m.CoAuthored,
-		ByRepo:             len(repos) >= 2,
+		// The same rule as the repo breakdown, so the two always agree
+		ByRepo: RepoCount(commits) >= 2,
 	}
 	groups := make(map[[2]string]*model.HighlightGroup)
 

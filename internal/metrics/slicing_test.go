@@ -33,3 +33,15 @@ func TestHighlights_ByRepo(t *testing.T) {
 		t.Errorf("one repo: %+v; want no repo grouping and empty Repo fields", single)
 	}
 }
+
+// Highlights and the breakdown agree on how many repos have commits, merges included
+func TestHighlights_ByRepoCountsMerges(t *testing.T) {
+	commits := []model.ClassifiedCommit{
+		{Commit: model.Commit{Hash: "a1", Repo: "api"}, Type: "feat", Scope: "auth", Subject: "a1"},
+		{Commit: model.Commit{Hash: "w1", Repo: "web", IsMerge: true}, Type: "unknown", Subject: "Merge branch 'x'"},
+	}
+	h := (&HighlightsMetric{}).Compute(commits).Value.(model.Highlights)
+	if got, want := h.ByRepo, RepoCount(commits) >= 2; got != want {
+		t.Errorf("ByRepo = %v, but RepoCount >= 2 is %v", got, want)
+	}
+}
