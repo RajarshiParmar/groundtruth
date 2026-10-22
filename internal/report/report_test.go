@@ -132,6 +132,9 @@ func TestWriteXLSX(t *testing.T) {
 	if v, _ := f.GetCellValue("contribution_score", "B4"); v != "11" {
 		t.Errorf("contribution_score!B4 (total) = %q, want 11", v)
 	}
+	if v, _ := f.GetCellValue("merge_summaries", "E2"); v != "map[feat:2]" {
+		t.Errorf("merge_summaries E2 = %q, want map[feat:2]", v)
+	}
 	if v, _ := f.GetCellValue("merge_summaries", "B2"); v != "2025-01-02 03:04" {
 		t.Errorf("merge_summaries!B2 = %q, want 2025-01-02 03:04", v)
 	}

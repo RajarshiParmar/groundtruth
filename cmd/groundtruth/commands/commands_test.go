@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -242,5 +243,82 @@ func TestRun_HighlightsAndTickets(t *testing.T) {
 	scopes := filepath.Join(out, "commit_by_scope.csv")
 	if api, general := csvValue(t, scopes, "api"), csvValue(t, scopes, "general"); api != "1" || general != "2" {
 		t.Errorf("commit_by_scope api=%q general=%q, want 1 and 2 (chore: init and fix: two)", api, general)
+	}
+}
+
+// editConfig rewrites a config written by writeConfig
+func editConfig(t *testing.T, path string, edit func(string) string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(edit(string(data))), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+}
+
+// captureStderr swaps os.Stderr for a pipe while fn runs
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = old }()
+
+	fn()
+	w.Close()
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	return string(out)
+}
+
+func TestRun_Markdown(t *testing.T) {
+	repo := t.TempDir()
+	makeRepo(t, repo)
+	out := filepath.Join(t.TempDir(), "report")
+
+	cfg := writeConfig(t, repo, false, "analyze", "  commit_count: true\n  highlights: true")
+	editConfig(t, cfg, func(s string) string { return strings.Replace(s, "formats: [csv]", "formats: [md]", 1) })
+
+	if err := execute(t, RunCmd(), "--config", cfg, "--output", out); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(out, "report.md"))
+	if err != nil {
+		t.Fatalf("report.md: %v", err)
+	}
+	md := string(data)
+	if !strings.HasPrefix(md, "# groundtruth report\n\n2025-03-10 to 2025-03-10\n\n## Highlights\n") {
+		t.Errorf("report.md does not start with the title, period and highlights:\n%s", md)
+	}
+	for _, want := range []string{"- one PROJ-7\n", "- two\n", "## Commit Count\n"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("report.md missing %q:\n%s", want, md)
+		}
+	}
+}
+
+func TestValidate_WarnsAboutReportSections(t *testing.T) {
+	repo := t.TempDir()
+	makeRepo(t, repo)
+
+	cfg := writeConfig(t, repo, false, "ignore", "  commit_count: true")
+	editConfig(t, cfg, func(s string) string { return s + "report:\n  sections:\n    summary: true\n" })
+
+	var err error
+	stderr := captureStderr(t, func() { err = execute(t, ValidateCmd(), "--config", cfg) })
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if !strings.Contains(stderr, "warning: report.sections is no longer used") {
+		t.Errorf("stderr = %q, want the report.sections warning", stderr)
 	}
 }

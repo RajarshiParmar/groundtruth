@@ -65,6 +65,7 @@ Supported output formats:
 - CSV
 - XLSX
 - PDF
+- Markdown (`md`)
 
 ### CSV
 One file is generated per enabled metric, for example:
@@ -100,6 +101,45 @@ report.pdf
 Each metric is rendered as a readable section.
 
 The PDF uses the built-in fonts, which cover Western European characters (Windows-1252) only. Other scripts, such as Polish, Cyrillic, Greek, CJK or emoji, show up as dots; use the CSV or XLSX output for the exact text.
+
+### Markdown
+A single document for pasting into an appraisal doc (GitHub, Notion, Confluence, or Google Docs via Markdown import):
+
+```
+report.md
+```
+
+It starts with the period, then lists **every** highlight grouped by scope (not the short view), then the other metrics as tables:
+
+```markdown
+# groundtruth report
+
+2025-01-01 to 2025-06-30
+
+## Highlights
+
+42 of 42 commits classified (100%)
+
+### auth
+
+feat: 1 · fix: 1
+
+- add SSO login (PROJ-12, #88)
+- handle expired tokens (#88)
+
+### Breaking changes
+
+- api: drop v1 endpoints (PROJ-40)
+
+## Commit By Type
+
+| key | count |
+|---|---|
+| feat | 18 |
+| fix | 12 |
+```
+
+Commit text is escaped, so characters such as `*`, `_`, `[` or `|` in a subject never turn into formatting or break a table. The file has no timestamp: the same history and range always give the same `report.md`.
 
 Only enabled metrics produce output.
 
@@ -175,6 +215,7 @@ output:
     - csv
     - xlsx
     - pdf
+    - md
   directory: ./groundtruth-report
 
 scoring:
@@ -272,6 +313,7 @@ scoring:
 - Weights must be non-negative.
 - `highlights.types` entries must be lowercase words, such as `feat` or `unknown`.
 - `highlights.per_scope` must be non-negative; `0` means the default of 3.
+- `report.sections` has been removed: the `metrics.*` toggles decide what appears in every report. Configs that still contain a `report:` block load with a warning.
 - `tickets.prefixes` entries must match `^[A-Z][A-Z0-9]*$`, such as `PROJ` (not `proj` or `PROJ-`).
 
 ---
