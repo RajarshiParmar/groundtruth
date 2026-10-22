@@ -187,3 +187,15 @@ func TestPDFNumberTableFontSize(t *testing.T) {
 	}
 }
 
+// Columns line up by character, so non-ASCII repo names do not shift a row
+func TestNumberTableLines_NonASCII(t *testing.T) {
+	table := model.NumberTable{
+		KeyHeader: "repo",
+		Columns:   []string{"commits"},
+		Rows:      []model.NumberRow{{Label: "café", Values: []int{4}}, {Label: "api", Values: []int{2}}},
+	}
+	want := []string{"repo  commits", "café        4", "api         2"}
+	if got := numberTableLines(table); !reflect.DeepEqual(got, want) {
+		t.Errorf("lines = %q, want %q", got, want)
+	}
+}

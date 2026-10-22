@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/RajarshiParmar/groundtruth/internal/model"
 )
@@ -13,9 +14,10 @@ import (
 func numberTableLines(t model.NumberTable) []string {
 	cells := numberTableCells(t)
 
-	labelWidth := len(t.KeyHeader)
+	// Widths count characters, as fmt pads by character too
+	labelWidth := utf8.RuneCountInString(t.KeyHeader)
 	for _, r := range t.Rows {
-		labelWidth = max(labelWidth, len(r.Label))
+		labelWidth = max(labelWidth, utf8.RuneCountInString(r.Label))
 	}
 	widths := make([]int, len(t.Columns))
 	for i, c := range t.Columns {
