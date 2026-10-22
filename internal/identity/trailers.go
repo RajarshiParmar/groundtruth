@@ -10,13 +10,16 @@ type Person struct {
 	Name, Email string
 }
 
-var coAuthorLine = regexp.MustCompile(`(?i)^co-authored-by:\s*(.*?)\s*<([^<>]+)>\s*$`)
+var coAuthorLine = regexp.MustCompile(`(?i)^co-authored-by\s*:\s*(.*?)\s*<([^<>]+)>\s*$`)
+
+// A paragraph ends at a line that is empty or only whitespace
+var paragraphBreak = regexp.MustCompile(`\n[ \t]*\n`)
 
 // CoAuthors reads Co-authored-by trailers from the message's trailer block:
 // its last paragraph, and never the subject line.
 func CoAuthors(message string) []Person {
 	message = strings.TrimSpace(strings.ReplaceAll(message, "\r\n", "\n"))
-	paragraphs := strings.Split(message, "\n\n")
+	paragraphs := paragraphBreak.Split(message, -1)
 	if len(paragraphs) < 2 {
 		return nil
 	}

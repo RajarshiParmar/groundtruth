@@ -26,3 +26,19 @@ func TestCoAuthors(t *testing.T) {
 		}
 	}
 }
+
+// Forms git's trailer parser accepts
+func TestCoAuthors_GitForms(t *testing.T) {
+	want := []Person{{"Ann", "ann@x.com"}}
+	for name, msg := range map[string]string{
+		"whitespace-only separator": "feat: x\n \t\nCo-authored-by: Ann <ann@x.com>",
+		"space before colon":        "feat: x\n\nCo-authored-by : Ann <ann@x.com>",
+	} {
+		if got := CoAuthors(msg); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: got %v, want %v", name, got, want)
+		}
+	}
+	if got := CoAuthors("feat: x\n \n"); got != nil {
+		t.Errorf("subject and blank line only: got %v, want nil", got)
+	}
+}
