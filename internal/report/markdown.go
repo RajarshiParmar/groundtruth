@@ -44,6 +44,14 @@ func WriteMarkdown(results []metrics.Result, outputDir, period string) error {
 			continue
 		}
 
+		if v, ok := r.Value.(model.NumberTable); ok {
+			if v.Caption != "" {
+				blocks = append(blocks, mdEscape(v.Caption))
+			}
+			blocks = append(blocks, markdownTable(mdNumberTable(v)))
+			continue
+		}
+
 		tables, err := tablesFor(r)
 		if err != nil {
 			return err
@@ -200,4 +208,18 @@ func writeFile(path string, data []byte) (err error) {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// mdNumberTable is the number table with text cells, so a comparison's
+// change column keeps its sign
+func mdNumberTable(v model.NumberTable) table {
+	t := table{Header: append([]string{v.KeyHeader}, v.Columns...)}
+	for i, cells := range numberTableCells(v) {
+		row := []any{v.Rows[i].Label}
+		for _, c := range cells {
+			row = append(row, c)
+		}
+		t.Rows = append(t.Rows, row)
+	}
+	return t
 }

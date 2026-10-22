@@ -69,6 +69,12 @@ func printMetricSummary(r metrics.Result) {
 	case model.Highlights:
 		printHighlights(v.Summary())
 
+	case model.NumberTable:
+		fmt.Printf("  %s\n", formatLabel(r.Name))
+		for _, l := range numberTableLines(v) {
+			fmt.Printf("    %s\n", l)
+		}
+
 	default:
 		fmt.Printf("  %-20s (unknown format)\n", formatLabel(r.Name))
 	}

@@ -67,6 +67,13 @@ func writeMetricPDF(pdf *gofpdf.Fpdf, tr func(string) string, r metrics.Result) 
 	case model.Highlights:
 		writeHighlightsPDF(pdf, tr, v)
 
+	case model.NumberTable:
+		// A fixed-width font keeps the columns aligned
+		pdf.SetFont("Courier", "", 10)
+		for _, l := range numberTableLines(v) {
+			pdf.MultiCell(0, 5, tr(l), "", "L", false)
+		}
+
 	default:
 		pdf.Cell(0, 6, "Unsupported metric format")
 	}

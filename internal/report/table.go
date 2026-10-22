@@ -55,6 +55,17 @@ func tablesFor(r metrics.Result) ([]table, error) {
 	case model.Highlights:
 		return []table{highlightTable(v)}, nil
 
+	case model.NumberTable:
+		t := table{Header: append([]string{v.KeyHeader}, v.Columns...)}
+		for _, r := range v.Rows {
+			row := []any{r.Label}
+			for _, n := range r.Values {
+				row = append(row, n)
+			}
+			t.Rows = append(t.Rows, row)
+		}
+		return []table{t}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported metric output for %s", r.Name)
 	}
