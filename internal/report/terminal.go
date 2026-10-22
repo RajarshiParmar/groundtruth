@@ -13,6 +13,11 @@ import (
 const (
 	lineWidth = 42
 	titleText = "groundtruth summary"
+
+	// wrapWidth is the widest a summary line may get before key-value lists wrap
+	wrapWidth = 80
+	// valueIndent lines continuation rows up with the value column ("  " + 20-wide label + " ")
+	valueIndent = 23
 )
 
 // WriteSummary prints a concise summary of all computed metrics to stdout.
@@ -43,8 +48,7 @@ func printMetricSummary(r metrics.Result) {
 		fmt.Printf("  %-20s %d\n", formatLabel(r.Name), v)
 
 	case map[string]int:
-		parts := formatKeyValueInline(v)
-		fmt.Printf("  %-20s %s\n", formatLabel(r.Name), parts)
+		printKeyValue(formatLabel(r.Name), v)
 
 	case map[string]map[string]int:
 		periods := make([]string, 0, len(v))
@@ -53,9 +57,7 @@ func printMetricSummary(r metrics.Result) {
 		}
 		sort.Strings(periods)
 		for _, period := range periods {
-			label := fmt.Sprintf("%s (%s)", formatLabel(r.Name), period)
-			parts := formatKeyValueInline(v[period])
-			fmt.Printf("  %-20s %s\n", label, parts)
+			printKeyValue(fmt.Sprintf("%s (%s)", formatLabel(r.Name), period), v[period])
 		}
 
 	case []model.MergeSummary:
@@ -63,6 +65,9 @@ func printMetricSummary(r metrics.Result) {
 
 	case model.ContributionScore:
 		printContributionScore(v)
+
+	case model.Highlights:
+		printHighlights(v.Summary())
 
 	default:
 		fmt.Printf("  %-20s (unknown format)\n", formatLabel(r.Name))
@@ -104,7 +109,7 @@ func formatLabel(name string) string {
 	return strings.Join(words, " ")
 }
 
-func formatKeyValueInline(data map[string]int) string {
+func keyValueParts(data map[string]int) []string {
 	keys := make([]string, 0, len(data))
 	for k := range data {
 		keys = append(keys, k)
@@ -115,5 +120,72 @@ func formatKeyValueInline(data map[string]int) string {
 	for _, k := range keys {
 		parts = append(parts, fmt.Sprintf("%s: %d", k, data[k]))
 	}
-	return strings.Join(parts, "  ")
+	return parts
+}
+
+// printKeyValue prints "label  k: v  k: v", wrapping so no line is wider than wrapWidth
+func printKeyValue(label string, data map[string]int) {
+	prefix := fmt.Sprintf("  %-20s ", label)
+	lines := wrapParts(keyValueParts(data), wrapWidth-len([]rune(prefix)))
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+
+	fmt.Printf("%s%s\n", prefix, lines[0])
+	for _, l := range lines[1:] {
+		fmt.Printf("%s%s\n", strings.Repeat(" ", valueIndent), l)
+	}
+}
+
+// wrapParts joins parts with two spaces into lines at most width runes wide.
+// A part wider than width on its own gets a line to itself.
+func wrapParts(parts []string, width int) []string {
+	var lines []string
+	var cur string
+	for _, p := range parts {
+		switch {
+		case cur == "":
+			cur = p
+		case len([]rune(cur))+2+len([]rune(p)) <= width:
+			cur += "  " + p
+		default:
+			lines = append(lines, cur)
+			cur = p
+		}
+	}
+	if cur != "" {
+		lines = append(lines, cur)
+	}
+	return lines
+}
+
+// printHighlights renders the short view: per scope its counts and newest
+// subjects, then every breaking change.
+func printHighlights(h model.Highlights) {
+	status, hint, empty := highlightsStatus(h)
+	fmt.Printf("  %-20s %s\n", "Highlights", status)
+	if empty {
+		return
+	}
+	if hint != "" {
+		fmt.Printf("    %s\n", hint)
+	}
+
+	for _, g := range h.Groups {
+		fmt.Printf("    %-19s%s\n", g.Scope, strings.Join(keyValueParts(g.Counts), "  "))
+		for _, it := range g.Items {
+			fmt.Printf("      - %s%s\n", it.Subject, ticketSuffix(it.Tickets))
+		}
+		if more := moreCount(g); more > 0 {
+			fmt.Printf("      … %d more\n", more)
+		}
+	}
+
+	if len(h.Breaking) == 0 {
+		return
+	}
+	fmt.Println("  Breaking changes")
+	for _, it := range h.Breaking {
+		fmt.Printf("      - %s\n", breakingLabel(it))
+	}
 }
