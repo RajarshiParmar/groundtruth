@@ -81,6 +81,7 @@ func RunCmd() *cobra.Command {
 
 			// Scan commits
 			scans := git.ScanRepos(repoPaths, from, to, opts)
+			git.NameCommits(scans, git.RepoNames(cfg.Repository.Path, repoPaths, cfg.Repository.BaseDir))
 
 			commits, scanWarnings, duplicates, err := git.MergeScans(scans)
 			for _, w := range scanWarnings {

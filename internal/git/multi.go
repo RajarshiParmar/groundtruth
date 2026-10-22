@@ -13,6 +13,7 @@ import (
 // RepoScan is the outcome of scanning one repository
 type RepoScan struct {
 	Path     string
+	Name     string // set by NameCommits
 	Commits  []model.Commit
 	Warnings []string
 	Err      error
