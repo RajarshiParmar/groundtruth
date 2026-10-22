@@ -21,6 +21,9 @@ type HighlightsMetric struct {
 	Types    []string
 	PerScope int
 	Matcher  *classify.TicketMatcher
+
+	// CoAuthored is identity.co_authored; writers then show which items were paired
+	CoAuthored bool
 }
 
 func (m *HighlightsMetric) Name() string {
@@ -37,7 +40,11 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 		limit = DefaultHighlightsPerScope
 	}
 
-	h := model.Highlights{SummaryLimit: limit, IncludesUnknown: slices.Contains(types, "unknown")}
+	h := model.Highlights{
+		SummaryLimit:       limit,
+		IncludesUnknown:    slices.Contains(types, "unknown"),
+		IncludesCoAuthored: m.CoAuthored,
+	}
 	groups := make(map[string]*model.HighlightGroup)
 
 	for _, c := range commits {
@@ -61,6 +68,7 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 			Breaking:  c.Breaking,
 			Timestamp: c.Timestamp,
 			Tickets:   m.Matcher.Find(c.Message),
+			Paired:    c.CoAuthored,
 		}
 
 		scope := scopeOrGeneral(c.Scope)

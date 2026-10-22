@@ -11,6 +11,7 @@ type Highlight struct {
 	Breaking  bool
 	Timestamp time.Time
 	Tickets   []string
+	Paired    bool // the user is a co-author, not the author
 }
 
 type HighlightGroup struct {
@@ -30,6 +31,10 @@ type Highlights struct {
 	// IncludesUnknown is set when unclassified commits are selected, so writers
 	// don't suggest an opt-in the user already made
 	IncludesUnknown bool
+
+	// IncludesCoAuthored is set when identity.co_authored is on, so writers
+	// add a paired column
+	IncludesCoAuthored bool
 }
 
 // Summary returns the short view: each group's Items cut to SummaryLimit.

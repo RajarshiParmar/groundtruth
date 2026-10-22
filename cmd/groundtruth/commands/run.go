@@ -128,9 +128,12 @@ func RunCmd() *cobra.Command {
 			// Metrics
 			registry := metrics.NewRegistry()
 			registry.Register(&metrics.CommitCountMetric{})
+			registry.Register(&metrics.CoAuthoredMetric{})
 			registry.Register(&metrics.CommitByTypeMetric{})
-			registry.Register(&metrics.LinesChangedMetric{})
-			registry.Register(&metrics.FilesChangedMetric{})
+			// The excluded keys appear only when exclude_paths is set
+			showExcluded := len(cfg.ExcludePaths) > 0
+			registry.Register(&metrics.LinesChangedMetric{ShowExcluded: showExcluded})
+			registry.Register(&metrics.FilesChangedMetric{ShowExcluded: showExcluded})
 			registry.Register(&metrics.ActivityTimelineMetric{})
 			registry.Register(&metrics.MergeSummariesMetric{})
 
@@ -139,9 +142,10 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.CommitByScopeMetric{})
 			registry.Register(&metrics.TicketsMetric{Matcher: matcher})
 			registry.Register(&metrics.HighlightsMetric{
-				Types:    cfg.Highlights.Types,
-				PerScope: cfg.Highlights.PerScope,
-				Matcher:  matcher,
+				Types:      cfg.Highlights.Types,
+				PerScope:   cfg.Highlights.PerScope,
+				Matcher:    matcher,
+				CoAuthored: cfg.Identity.CoAuthored,
 			})
 
 			// Contribution score: typed weights; zero value yields defaults.
@@ -155,6 +159,13 @@ func RunCmd() *cobra.Command {
 
 			if cfg.Metrics.CommitCount {
 				if m, ok := registry.Get("commit_count"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			// Co-author credit is opt-in, so its count is too
+			if cfg.Identity.CoAuthored {
+				if m, ok := registry.Get("co_authored"); ok {
 					results = append(results, m.Compute(classified))
 				}
 			}
