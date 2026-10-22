@@ -118,6 +118,16 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.ActivityTimelineMetric{})
 			registry.Register(&metrics.MergeSummariesMetric{})
 
+			// One matcher so tickets and highlights agree on what a reference is
+			matcher := classify.NewTicketMatcher(cfg.Tickets.Prefixes)
+			registry.Register(&metrics.CommitByScopeMetric{})
+			registry.Register(&metrics.TicketsMetric{Matcher: matcher})
+			registry.Register(&metrics.HighlightsMetric{
+				Types:    cfg.Highlights.Types,
+				PerScope: cfg.Highlights.PerScope,
+				Matcher:  matcher,
+			})
+
 			// Contribution score: typed weights; zero value yields defaults.
 			var scoreWeights config.ScoringWeights
 			if cfg.Scoring.Enabled {
@@ -135,6 +145,24 @@ func RunCmd() *cobra.Command {
 
 			if cfg.Metrics.CommitByType {
 				if m, ok := registry.Get("commit_by_type"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			if cfg.Metrics.CommitByScope {
+				if m, ok := registry.Get("commit_by_scope"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			if cfg.Metrics.Highlights {
+				if m, ok := registry.Get("highlights"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			if cfg.Metrics.Tickets {
+				if m, ok := registry.Get("tickets"); ok {
 					results = append(results, m.Compute(classified))
 				}
 			}

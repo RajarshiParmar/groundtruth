@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -61,7 +62,7 @@ func makeRepo(t *testing.T, dir string) {
 
 	commit("chore: init", email)
 	checkout("feature", true)
-	commit("feat: one", email)
+	commit("feat(api): one PROJ-7", email)
 	side := commit("fix: two", email)
 	checkout("main", false)
 	commit("docs: other author", "other@example.com")
@@ -200,5 +201,46 @@ func TestValidate(t *testing.T) {
 	err = execute(t, ValidateCmd(), "--config", writeConfig(t, repo, false, "ignore", "  merge_summaries: true"))
 	if err == nil || !strings.Contains(err.Error(), "analyze") {
 		t.Errorf("merge_summaries without analyze: error %v", err)
+	}
+}
+
+func TestRun_HighlightsAndTickets(t *testing.T) {
+	repo := t.TempDir()
+	makeRepo(t, repo)
+	out := filepath.Join(t.TempDir(), "report")
+
+	// The metrics block is followed by top-level keys, so tickets: can ride along
+	metrics := "  commit_by_scope: true\n  highlights: true\n  tickets: true\ntickets:\n  prefixes: [PROJ]"
+	cfg := writeConfig(t, repo, false, "analyze", metrics)
+	if err := execute(t, RunCmd(), "--config", cfg, "--output", out); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	f, err := os.Open(filepath.Join(out, "highlights.csv"))
+	if err != nil {
+		t.Fatalf("highlights.csv: %v", err)
+	}
+	defer f.Close()
+	rows, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	// chore: init is not a highlight type; the docs commit is by another author
+	var got [][]string
+	for _, r := range rows[1:] {
+		got = append(got, []string{r[1], r[2], r[4], r[5]}) // scope, type, subject, tickets
+	}
+	want := [][]string{{"api", "feat", "one PROJ-7", "PROJ-7"}, {"general", "fix", "two", ""}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("highlights.csv rows = %q, want %q", got, want)
+	}
+
+	if got := csvValue(t, filepath.Join(out, "tickets.csv"), "PROJ-7"); got != "1" {
+		t.Errorf("tickets PROJ-7 = %q, want 1", got)
+	}
+	scopes := filepath.Join(out, "commit_by_scope.csv")
+	if api, general := csvValue(t, scopes, "api"), csvValue(t, scopes, "general"); api != "1" || general != "2" {
+		t.Errorf("commit_by_scope api=%q general=%q, want 1 and 2 (chore: init and fix: two)", api, general)
 	}
 }

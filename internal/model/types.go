@@ -26,6 +26,7 @@ type ClassifiedCommit struct {
 
 	Type     string
 	Scope    string
+	Subject  string // header without "type(scope)!: "; the whole header when unclassified
 	Breaking bool
 }
 
