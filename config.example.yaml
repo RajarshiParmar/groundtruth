@@ -85,6 +85,12 @@ output:
   # Output directory (created if it does not exist)
   directory: ./groundtruth-report
 
+# Optional: compare this period's totals with an earlier one
+# compare: previous     # the same length, just before time_range
+# compare:              # or an explicit earlier period
+#   from: 2024-01-01
+#   to: 2024-06-30
+
 scoring:
   # Disabled by default. Enable only if you explicitly want a score.
   enabled: false
