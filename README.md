@@ -99,6 +99,8 @@ report.pdf
 
 Each metric is rendered as a readable section.
 
+The PDF uses the built-in fonts, which cover Western European characters (Windows-1252) only. Other scripts, such as Polish, Cyrillic, Greek, CJK or emoji, show up as dots; use the CSV or XLSX output for the exact text.
+
 Only enabled metrics produce output.
 
 ### Terminal summary
@@ -110,7 +112,6 @@ A concise summary is always printed to stdout after every successful run:
   Commit Count         42
   Commit By Type       chore: 5  docs: 7  feat: 18  fix: 12
   Commit By Scope      api: 9  auth: 14  general: 19
-  Lines Changed        added: 1204  net: 817  removed: 387
   Highlights           42 of 42 commits classified (100%)
     auth               feat: 5  fix: 2
       - add SSO login [PROJ-12]
@@ -120,6 +121,7 @@ A concise summary is always printed to stdout after every successful run:
   Breaking changes
       - api: drop v1 endpoints (2025-03-02)
   Tickets              #88: 2  PROJ-12: 3
+  Lines Changed        added: 1204  net: 817  removed: 387
   Contribution         84.0  (42 commits)
 ─────────────────────────────────────────
 ```
@@ -230,7 +232,7 @@ highlights:
 
 `metrics.tickets` counts how many of your commits mention each ticket:
 
-- `#123` is always recognised, including pull request numbers in merge messages. `page#3` and HTML entities such as `&#39;` are ignored.
+- `#123` is always recognised, including pull request numbers in merge messages (unless `merge_commits.mode` is `ignore`, which drops merge commits before any metric runs). `page#3` and HTML entities such as `&#39;` are ignored.
 - Tracker keys such as `PROJ-123` are recognised only for the prefixes you list, so `UTF-8` or `SHA-256` are never mistaken for tickets.
 - The whole commit message is searched, including footers such as `Refs: PROJ-12`.
 
