@@ -1,9 +1,11 @@
 package identity
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 const sampleMailmap = `# team mailmap
@@ -98,5 +100,42 @@ func TestMailmap_EdgeEntries(t *testing.T) {
 	named, _ := ParseMailmap(strings.NewReader("Me <me@x.com> Bot <ci@x.com>\n"), "m")
 	if got := Merge(Mailmap{}, named).Canonical("Bot", "ci@x.com"); got != "me@x.com" {
 		t.Errorf("Merge kept name entry: %q, want me@x.com", got)
+	}
+}
+
+// Lines git reads that a stricter parser would drop
+func TestParseMailmap_GitCompat(t *testing.T) {
+	text := "\ufeff# saved by Notepad\n<bom@new.com> <bom@old.com>\n" +
+		"C# Team <c@new.com> <c@old.com>\n" +
+		"<d@new.com> <d@old.com> old laptop\n" +
+		"Me <me@new.com> me <shared@x.com>\n" +
+		"  # indented comment\n"
+	m, warnings := ParseMailmap(strings.NewReader(text), "f")
+	if len(warnings) != 0 {
+		t.Errorf("warnings = %q, want none", warnings)
+	}
+	for _, tc := range []struct{ name, email, want string }{
+		{"", "bom@old.com", "bom@new.com"},   // UTF-8 BOM, as Notepad saves it
+		{"", "c@old.com", "c@new.com"},       // "#" inside a name is not a comment
+		{"", "d@old.com", "d@new.com"},       // text after the last ">" is ignored
+		{"ME", "shared@x.com", "me@new.com"}, // names compare case-insensitively, as in git
+		{"Bob", "shared@x.com", "shared@x.com"},
+	} {
+		if got := m.Canonical(tc.name, tc.email); got != tc.want {
+			t.Errorf("Canonical(%q, %q) = %q, want %q", tc.name, tc.email, got, tc.want)
+		}
+	}
+}
+
+func TestParseMailmap_ReadError(t *testing.T) {
+	_, warnings := ParseMailmap(iotest.ErrReader(errors.New("boom")), "f")
+	if want := []string{"f: boom"}; !reflect.DeepEqual(warnings, want) {
+		t.Errorf("warnings = %q, want %q", warnings, want)
+	}
+
+	long := "<a@new.com> <a@old.com>\n" + strings.Repeat("x", 70*1024) + "\n"
+	m, warnings := ParseMailmap(strings.NewReader(long), "f")
+	if len(warnings) != 1 || !strings.HasPrefix(warnings[0], "f: ") || m.Canonical("", "a@old.com") != "a@new.com" {
+		t.Errorf("long line: warnings %q, Canonical %q; want one read warning and the first entry kept", warnings, m.Canonical("", "a@old.com"))
 	}
 }

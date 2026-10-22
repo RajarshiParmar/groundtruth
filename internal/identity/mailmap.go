@@ -18,11 +18,12 @@ type Mailmap struct {
 
 type mapping struct {
 	any    string            // proper email for any name ("" if none)
-	byName map[string]string // commit name → proper email
+	byName map[string]string // lowercased commit name → proper email
 }
 
-// One or two "Name <email>" pairs; names may be empty
-var mailmapLine = regexp.MustCompile(`^([^<>]*)<([^<>]*)>\s*(?:([^<>]*)<([^<>]*)>)?$`)
+// One or two "Name <email>" pairs; names may be empty. Like git, text after
+// the last ">" is ignored.
+var mailmapLine = regexp.MustCompile(`^([^<>]*)<([^<>]*)>\s*(?:([^<>]*)<([^<>]*)>)?[^<>]*$`)
 
 // ParseMailmap reads git's .mailmap format. Malformed lines are skipped and
 // returned as warnings ("<source>:<line>: malformed mailmap entry").
@@ -33,11 +34,12 @@ func ParseMailmap(r io.Reader, source string) (Mailmap, []string) {
 	sc := bufio.NewScanner(r)
 	for n := 1; sc.Scan(); n++ {
 		line := sc.Text()
-		if i := strings.IndexByte(line, '#'); i >= 0 {
-			line = line[:i]
+		if n == 1 {
+			line = strings.TrimPrefix(line, "\ufeff")
 		}
+		// As in git, only a line starting with "#" is a comment, so "C# Team" is a name
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || line[0] == '#' {
 			continue
 		}
 
@@ -52,6 +54,9 @@ func ParseMailmap(r io.Reader, source string) (Mailmap, []string) {
 			continue
 		}
 		m.set(strings.TrimSpace(p[3]), p[4], strings.ToLower(strings.TrimSpace(p[2])))
+	}
+	if err := sc.Err(); err != nil {
+		warnings = append(warnings, fmt.Sprintf("%s: %v", source, err))
 	}
 	return m, warnings
 }
@@ -68,7 +73,7 @@ func (m *Mailmap) set(name, email, proper string) {
 		if e.byName == nil {
 			e.byName = make(map[string]string)
 		}
-		e.byName[name] = proper
+		e.byName[strings.ToLower(name)] = proper
 	}
 	m.entries[key] = e
 }
@@ -81,7 +86,7 @@ func (m Mailmap) Canonical(name, email string) string {
 	if !ok {
 		return key
 	}
-	if p, ok := e.byName[name]; ok {
+	if p, ok := e.byName[strings.ToLower(name)]; ok {
 		return p
 	}
 	if e.any != "" {
