@@ -159,3 +159,31 @@ func TestWritePDF_NumberTable(t *testing.T) {
 		t.Fatalf("WritePDF: %v", err)
 	}
 }
+
+// Long repo paths must not push the last column onto its own line
+func TestPDFNumberTableFontSize(t *testing.T) {
+	pdf := newReportPDF()
+	width := pageTextWidth(pdf)
+
+	wide := model.NumberTable{
+		KeyHeader: "repo",
+		Columns:   []string{"commits", "lines_added", "lines_removed", "files", "co_authored"},
+		Rows:      []model.NumberRow{{Label: "clients/acme-corp/mobile-app-ios-v2", Values: []int{42, 3120, 980, 61, 0}}},
+	}
+	lines := numberTableLines(wide)
+	size := pdfNumberTableFontSize(pdf, lines)
+	if size >= 10 {
+		t.Errorf("size = %v, want smaller than 10 for a %d-character line", size, len(lines[0]))
+	}
+	pdf.SetFont("Courier", "", size)
+	for _, l := range lines {
+		if w := pdf.GetStringWidth(l); w > width {
+			t.Errorf("line is %.1fmm wide at %vpt, page text width is %.1fmm: %q", w, size, width, l)
+		}
+	}
+
+	if got := pdfNumberTableFontSize(pdf, numberTableLines(sampleRepoTable())); got != 10 {
+		t.Errorf("short table: size = %v, want 10", got)
+	}
+}
+

@@ -18,9 +18,7 @@ func WritePDF(results []metrics.Result, outputDir string) error {
 		return err
 	}
 
-	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.SetMargins(15, 20, 15)
-	pdf.AddPage()
+	pdf := newReportPDF()
 
 	// The core fonts only cover cp1252; translate UTF-8 commit text into it
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
@@ -69,9 +67,13 @@ func writeMetricPDF(pdf *gofpdf.Fpdf, tr func(string) string, r metrics.Result) 
 
 	case model.NumberTable:
 		// A fixed-width font keeps the columns aligned
-		pdf.SetFont("Courier", "", 10)
-		for _, l := range numberTableLines(v) {
-			pdf.MultiCell(0, 5, tr(l), "", "L", false)
+		lines := numberTableLines(v)
+		for i, l := range lines {
+			lines[i] = tr(l)
+		}
+		pdf.SetFont("Courier", "", pdfNumberTableFontSize(pdf, lines))
+		for _, l := range lines {
+			pdf.MultiCell(0, 5, l, "", "L", false)
 		}
 
 	default:
@@ -194,4 +196,41 @@ func writeHighlightsPDF(pdf *gofpdf.Fpdf, tr func(string) string, h model.Highli
 		// MultiCell wraps long subjects instead of running off the page
 		pdf.MultiCell(0, 5, tr(l.text), "", "L", false)
 	}
+}
+
+// newReportPDF is an A4 page with the report's margins
+func newReportPDF() *gofpdf.Fpdf {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 20, 15)
+	pdf.AddPage()
+	return pdf
+}
+
+// pageTextWidth is the width between the left and right margins
+func pageTextWidth(pdf *gofpdf.Fpdf) float64 {
+	w, _ := pdf.GetPageSize()
+	left, _, right, _ := pdf.GetMargins()
+	return w - left - right
+}
+
+// pdfNumberTableFontSize is the largest Courier size, from 10pt down to
+// 6pt, at which every line fits the page, so long repo paths shrink the
+// table instead of wrapping its last column
+func pdfNumberTableFontSize(pdf *gofpdf.Fpdf, lines []string) float64 {
+	width := pageTextWidth(pdf)
+	size := 10.0
+	for ; size > 6; size -= 0.5 {
+		pdf.SetFont("Courier", "", size)
+		fits := true
+		for _, l := range lines {
+			if pdf.GetStringWidth(l) > width {
+				fits = false
+				break
+			}
+		}
+		if fits {
+			break
+		}
+	}
+	return size
 }
