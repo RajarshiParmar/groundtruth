@@ -44,6 +44,14 @@ func WriteMarkdown(results []metrics.Result, outputDir, period string) error {
 			continue
 		}
 
+		if v, ok := r.Value.(model.NumberTable); ok {
+			if v.Caption != "" {
+				blocks = append(blocks, mdEscape(v.Caption))
+			}
+			blocks = append(blocks, markdownTable(mdNumberTable(v)))
+			continue
+		}
+
 		tables, err := tablesFor(r)
 		if err != nil {
 			return err
@@ -74,8 +82,16 @@ func highlightBlocks(h model.Highlights) []string {
 		blocks = append(blocks, hint)
 	}
 
-	for _, g := range h.Groups {
-		blocks = append(blocks, "### "+mdHeading(g.Scope), strings.Join(keyValueParts(g.Counts), " · "))
+	// Scopes go one heading level deeper under a repo heading
+	scopeHeading := "### "
+	if h.ByRepo {
+		scopeHeading = "#### "
+	}
+	for i, g := range h.Groups {
+		if h.ByRepo && (i == 0 || h.Groups[i-1].Repo != g.Repo) {
+			blocks = append(blocks, "### "+mdHeading(g.Repo))
+		}
+		blocks = append(blocks, scopeHeading+mdHeading(g.Scope), strings.Join(keyValueParts(g.Counts), " · "))
 
 		items := make([]string, len(g.Items))
 		for i, it := range g.Items {
@@ -90,6 +106,10 @@ func highlightBlocks(h model.Highlights) []string {
 			label := mdItem(it.Subject)
 			if it.Scope != "" {
 				label = mdItem(it.Scope) + ": " + mdEscape(it.Subject)
+			}
+			if it.Repo != "" {
+				// The repo now leads the item, so it gets the list-marker escaping
+				label = mdItem(it.Repo) + " · " + label
 			}
 			items[i] = "- " + label + pairedSuffix(it) + mdTickets(it.Tickets)
 		}
@@ -200,4 +220,18 @@ func writeFile(path string, data []byte) (err error) {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// mdNumberTable is the number table with text cells, so a comparison's
+// change column keeps its sign
+func mdNumberTable(v model.NumberTable) table {
+	t := table{Header: append([]string{v.KeyHeader}, v.Columns...)}
+	for i, cells := range numberTableCells(v) {
+		row := []any{v.Rows[i].Label}
+		for _, c := range cells {
+			row = append(row, c)
+		}
+		t.Rows = append(t.Rows, row)
+	}
+	return t
 }

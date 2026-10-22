@@ -55,6 +55,17 @@ func tablesFor(r metrics.Result) ([]table, error) {
 	case model.Highlights:
 		return []table{highlightTable(v)}, nil
 
+	case model.NumberTable:
+		t := table{Header: append([]string{v.KeyHeader}, v.Columns...)}
+		for _, r := range v.Rows {
+			row := []any{r.Label}
+			for _, n := range r.Values {
+				row = append(row, n)
+			}
+			t.Rows = append(t.Rows, row)
+		}
+		return []table{t}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported metric output for %s", r.Name)
 	}
@@ -75,6 +86,9 @@ func highlightTable(h model.Highlights) table {
 	if h.IncludesCoAuthored {
 		t.Header = append(t.Header, "paired")
 	}
+	if h.ByRepo {
+		t.Header = append([]string{"repo"}, t.Header...)
+	}
 
 	for _, g := range h.Groups {
 		for _, it := range g.Items {
@@ -90,6 +104,9 @@ func highlightTable(h model.Highlights) table {
 			}
 			if h.IncludesCoAuthored {
 				row = append(row, it.Paired)
+			}
+			if h.ByRepo {
+				row = append([]any{g.Repo}, row...)
 			}
 			t.Rows = append(t.Rows, row)
 		}

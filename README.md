@@ -208,6 +208,7 @@ metrics:
   commit_by_scope: true
   highlights: true
   tickets: true
+  repo_breakdown: true
 
 highlights:
   types: [feat, fix, perf]
@@ -226,6 +227,8 @@ output:
 
 scoring:
   enabled: false
+
+# compare: previous
 ```
 
 ### Time range
@@ -254,6 +257,43 @@ With `repository.base_dir: true`, `path` is treated as a folder of checkouts:
 - Repositories nested inside another repository (vendored clones, test fixtures) are not scanned separately.
 - Directories that cannot be read, and repositories without commits, are skipped with a warning on stderr. The run fails only if no usable repository is found.
 - A commit that appears in more than one repository (forks, backup clones) is counted once.
+
+### Repositories and periods
+
+**Per-repository breakdown.** With `metrics.repo_breakdown: true` and commits from two or more repositories, the report adds a `repo_breakdown` table:
+
+- Each repository is named by its path under `repository.path`, such as `services/api`. If that folder is itself the repository, its folder name is used.
+- The columns are `commits`, plus `lines_added` and `lines_removed` when `lines_changed` is on, `files` (distinct files) when `files_changed` is on, and `co_authored` when `identity.co_authored` is on.
+- Rows are ordered by commit count, most first, then by name. They add up to the combined totals: a commit found in several clones counts once, for the first repository in alphabetical path order.
+- With a single repository, or only one with commits in the period, nothing is added.
+
+**Highlights by repository.** When the commits come from two or more repositories, highlights are grouped by repository first, then by scope. Breaking changes stay one list, each item starting with its repository (`services/api · auth: drop v1`), and `highlights.csv` gains a `repo` column. A single repository's highlights look as they always did.
+
+**Comparing with an earlier period.** `compare` adds a `comparison` table that puts this period's totals next to an earlier period's:
+
+```yaml
+compare: previous        # the period of the same length just before time_range
+
+# or an explicit earlier period
+compare:
+  from: 2024-01-01
+  to: 2024-06-30
+```
+
+`previous` is worked out from `time_range`:
+
+| time_range | previous |
+|---|---|
+| `from: 2025-01-01`, `to: 2025-06-30` (whole months) | 2024-07-01 to 2024-12-31 |
+| `from: 2025-03-10`, `to: 2025-03-23` (14 days) | 2025-02-24 to 2025-03-09 |
+| `last: 6m` | the 6 months before that |
+| `last: 30d` | the 30 days before that |
+
+- Every enabled metric that is a number or a count is compared: `commit_count`, `co_authored`, and each key of `lines_changed`, `files_changed`, `commit_by_type` and `commit_by_scope`, as rows such as `commit_by_type.feat`. A key that appears in only one period counts as 0 in the other.
+- `tickets` is compared as one row, the number of distinct tickets your commits mention, rather than a row per ticket.
+- Highlights, the activity timeline, merge summaries and the per-repository table cover the current period only. The contribution score is not compared: it is off by default, and a trend would make it a headline number.
+- The change column is the plain difference (`+6`, `-15`, `0`). Percentages are left out on purpose: going from 1 to 3 commits in a scope reads as `+200%` and says little.
+- `comparison.csv` and the `comparison` sheet have the columns `metric, current, previous, change`. The terminal, PDF and `report.md` show which two periods were compared above the table.
 
 ### Highlights
 
@@ -364,6 +404,7 @@ scoring:
 - `tickets.prefixes` entries must match `^[A-Z][A-Z0-9]*$`, such as `PROJ` (not `proj` or `PROJ-`).
 - Every `exclude_paths` entry must be a valid pattern; an invalid one is named in the error.
 - `identity.mailmap` must be a readable file.
+- `compare` is either `previous` or a mapping with both `from` and `to`; an explicit earlier period must end before `time_range` starts.
 
 ---
 

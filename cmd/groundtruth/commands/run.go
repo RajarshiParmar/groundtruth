@@ -79,8 +79,19 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 
+			// With compare, one scan covers both periods; commits are split below
+			scanFrom := from
+			var earlierFrom, earlierTo time.Time
+			if cfg.Compare.Enabled() {
+				if earlierFrom, earlierTo, err = config.CompareBounds(cfg.TimeRange, cfg.Compare, now); err != nil {
+					return err
+				}
+				scanFrom = earlierFrom
+			}
+
 			// Scan commits
-			scans := git.ScanRepos(repoPaths, from, to, opts)
+			scans := git.ScanRepos(repoPaths, scanFrom, to, opts)
+			git.NameCommits(scans, git.RepoNames(cfg.Repository.Path, repoPaths, cfg.Repository.BaseDir))
 
 			commits, scanWarnings, duplicates, err := git.MergeScans(scans)
 			for _, w := range scanWarnings {
@@ -109,17 +120,19 @@ func RunCmd() *cobra.Command {
 				commits = kept
 			}
 
+			// An explicit earlier period can leave a gap before time_range; it is dropped
+			earlier, commits := splitByTime(commits, from)
+			earlier, _ = splitByTime(earlier, earlierTo)
+
 			if verbose {
-				fmt.Printf("scanned %d commits\n", len(commits))
+				if cfg.Compare.Enabled() {
+					fmt.Printf("scanned %d commits (%d more in the earlier period)\n", len(commits), len(earlier))
+				} else {
+					fmt.Printf("scanned %d commits\n", len(commits))
+				}
 			}
 
-			// Classify commits using Conventional Commits
-			classifier := classify.NewConventionalClassifier()
-
-			classified := make([]model.ClassifiedCommit, 0, len(commits))
-			for _, c := range commits {
-				classified = append(classified, classifier.Classify(c))
-			}
+			classified := classifyAll(commits)
 
 			if verbose {
 				fmt.Printf("classified %d commits\n", len(classified))
@@ -129,6 +142,11 @@ func RunCmd() *cobra.Command {
 			registry := metrics.NewRegistry()
 			registry.Register(&metrics.CommitCountMetric{})
 			registry.Register(&metrics.CoAuthoredMetric{})
+			registry.Register(&metrics.RepoBreakdownMetric{
+				LinesChanged: cfg.Metrics.LinesChanged,
+				FilesChanged: cfg.Metrics.FilesChanged,
+				CoAuthored:   cfg.Identity.CoAuthored,
+			})
 			registry.Register(&metrics.CommitByTypeMetric{})
 			// The excluded keys appear only when exclude_paths is set
 			showExcluded := len(cfg.ExcludePaths) > 0
@@ -155,74 +173,13 @@ func RunCmd() *cobra.Command {
 			}
 			registry.Register(&metrics.ContributionScoreMetric{Weights: scoreWeights})
 
-			var results []metrics.Result
+			results := computeResults(cfg, registry, classified)
 
-			if cfg.Metrics.CommitCount {
-				if m, ok := registry.Get("commit_count"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			// Co-author credit is opt-in, so its count is too
-			if cfg.Identity.CoAuthored {
-				if m, ok := registry.Get("co_authored"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.CommitByType {
-				if m, ok := registry.Get("commit_by_type"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.CommitByScope {
-				if m, ok := registry.Get("commit_by_scope"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.Highlights {
-				if m, ok := registry.Get("highlights"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.Tickets {
-				if m, ok := registry.Get("tickets"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.LinesChanged {
-				if m, ok := registry.Get("lines_changed"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.FilesChanged {
-				if m, ok := registry.Get("files_changed"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.ActivityTimeline {
-				if m, ok := registry.Get("activity_timeline"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			// Merge summaries need merge analysis
-			if cfg.Metrics.MergeSummaries && cfg.MergeCommits.Mode == "analyze" {
-				if m, ok := registry.Get("merge_summaries"); ok {
-					results = append(results, m.Compute(classified))
-				}
-			}
-
-			if cfg.Metrics.ContributionScore {
-				if m, ok := registry.Get("contribution_score"); ok {
-					results = append(results, m.Compute(classified))
-				}
+			// The earlier period's totals, side by side with this period's
+			if cfg.Compare.Enabled() {
+				previous := computeResults(cfg, registry, classifyAll(earlier))
+				caption := config.PeriodLabel(cfg.TimeRange, now) + " compared with " + config.BoundsLabel(earlierFrom, earlierTo)
+				results = append(results, metrics.Result{Name: "comparison", Value: metrics.Compare(results, previous, caption)})
 			}
 
 			if verbose {
@@ -299,4 +256,108 @@ func personalMailmap(path string) (identity.Mailmap, error) {
 		fmt.Fprintln(os.Stderr, "warning:", w)
 	}
 	return m, nil
+}
+
+// splitByTime splits commits into those before at and those from at on
+func splitByTime(commits []model.Commit, at time.Time) (earlier, current []model.Commit) {
+	for _, c := range commits {
+		if c.Timestamp.Before(at) {
+			earlier = append(earlier, c)
+		} else {
+			current = append(current, c)
+		}
+	}
+	return earlier, current
+}
+
+// classifyAll classifies commits using Conventional Commits
+func classifyAll(commits []model.Commit) []model.ClassifiedCommit {
+	classifier := classify.NewConventionalClassifier()
+	classified := make([]model.ClassifiedCommit, 0, len(commits))
+	for _, c := range commits {
+		classified = append(classified, classifier.Classify(c))
+	}
+	return classified
+}
+
+// computeResults runs the enabled metrics, in report order
+func computeResults(cfg *config.Config, registry *metrics.Registry, classified []model.ClassifiedCommit) []metrics.Result {
+	var results []metrics.Result
+
+	if cfg.Metrics.CommitCount {
+		if m, ok := registry.Get("commit_count"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	// Co-author credit is opt-in, so its count is too
+	if cfg.Identity.CoAuthored {
+		if m, ok := registry.Get("co_authored"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	// A breakdown needs at least two repositories with commits
+	if cfg.Metrics.RepoBreakdown && metrics.RepoCount(classified) >= 2 {
+		if m, ok := registry.Get("repo_breakdown"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.CommitByType {
+		if m, ok := registry.Get("commit_by_type"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.CommitByScope {
+		if m, ok := registry.Get("commit_by_scope"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.Highlights {
+		if m, ok := registry.Get("highlights"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.Tickets {
+		if m, ok := registry.Get("tickets"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.LinesChanged {
+		if m, ok := registry.Get("lines_changed"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.FilesChanged {
+		if m, ok := registry.Get("files_changed"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.ActivityTimeline {
+		if m, ok := registry.Get("activity_timeline"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	// Merge summaries need merge analysis
+	if cfg.Metrics.MergeSummaries && cfg.MergeCommits.Mode == "analyze" {
+		if m, ok := registry.Get("merge_summaries"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	if cfg.Metrics.ContributionScore {
+		if m, ok := registry.Get("contribution_score"); ok {
+			results = append(results, m.Compute(classified))
+		}
+	}
+
+	return results
 }

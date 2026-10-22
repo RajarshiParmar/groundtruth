@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -27,6 +28,7 @@ type Config struct {
 	Highlights   Highlights   `yaml:"highlights"`
 	Tickets      Tickets      `yaml:"tickets"`
 	ExcludePaths []string     `yaml:"exclude_paths"`
+	Compare      Compare      `yaml:"compare"`
 
 	// Warnings collects problems that do not stop the config from loading
 	Warnings []string `yaml:"-"`
@@ -69,6 +71,7 @@ type Metrics struct {
 	CommitByScope     bool `yaml:"commit_by_scope"`
 	Highlights        bool `yaml:"highlights"`
 	Tickets           bool `yaml:"tickets"`
+	RepoBreakdown     bool `yaml:"repo_breakdown"`
 }
 
 // Report is the retired report.sections block; metrics.* decides what is shown
@@ -179,6 +182,20 @@ func validate(cfg *Config) error {
 	// to is exclusive (the day after time_range.to), so from == to is a one-day range
 	if !from.Before(to) {
 		return fmt.Errorf("time_range: from must be before or equal to to")
+	}
+
+	// compare: an explicit earlier period must be valid and end before time_range
+	if cfg.Compare.Enabled() && !cfg.Compare.Previous {
+		cmpFrom, cmpTo, err := CompareBounds(cfg.TimeRange, cfg.Compare, time.Now())
+		if err != nil {
+			return err
+		}
+		if !cmpFrom.Before(cmpTo) {
+			return fmt.Errorf("compare: from must be before or equal to to")
+		}
+		if cmpTo.After(from) {
+			return fmt.Errorf("compare: the earlier period must end before time_range starts")
+		}
 	}
 
 	// identity

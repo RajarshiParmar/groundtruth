@@ -4,6 +4,7 @@ import "time"
 
 type Commit struct {
 	Hash        string
+	Repo        string // repository name in the report (see git.RepoNames)
 	AuthorName  string
 	AuthorEmail string
 	Message     string

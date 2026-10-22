@@ -18,9 +18,7 @@ func WritePDF(results []metrics.Result, outputDir string) error {
 		return err
 	}
 
-	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.SetMargins(15, 20, 15)
-	pdf.AddPage()
+	pdf := newReportPDF()
 
 	// The core fonts only cover cp1252; translate UTF-8 commit text into it
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
@@ -66,6 +64,17 @@ func writeMetricPDF(pdf *gofpdf.Fpdf, tr func(string) string, r metrics.Result) 
 
 	case model.Highlights:
 		writeHighlightsPDF(pdf, tr, v)
+
+	case model.NumberTable:
+		// A fixed-width font keeps the columns aligned
+		lines := numberTableLines(v)
+		for i, l := range lines {
+			lines[i] = tr(l)
+		}
+		pdf.SetFont("Courier", "", pdfNumberTableFontSize(pdf, lines))
+		for _, l := range lines {
+			pdf.MultiCell(0, 5, l, "", "L", false)
+		}
 
 	default:
 		pdf.Cell(0, 6, "Unsupported metric format")
@@ -158,7 +167,10 @@ func highlightLinesPDF(h model.Highlights) []pdfLine {
 		lines = append(lines, pdfLine{"", hint})
 	}
 
-	for _, g := range h.Groups {
+	for i, g := range h.Groups {
+		if h.ByRepo && (i == 0 || h.Groups[i-1].Repo != g.Repo) {
+			lines = append(lines, pdfLine{"B", g.Repo})
+		}
 		lines = append(lines, pdfLine{"I", g.Scope + "  (" + strings.Join(keyValueParts(g.Counts), "  ") + ")"})
 		for _, it := range g.Items {
 			lines = append(lines, pdfLine{"", "- " + it.Subject + pairedSuffix(it) + ticketSuffix(it.Tickets)})
@@ -184,4 +196,41 @@ func writeHighlightsPDF(pdf *gofpdf.Fpdf, tr func(string) string, h model.Highli
 		// MultiCell wraps long subjects instead of running off the page
 		pdf.MultiCell(0, 5, tr(l.text), "", "L", false)
 	}
+}
+
+// newReportPDF is an A4 page with the report's margins
+func newReportPDF() *gofpdf.Fpdf {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 20, 15)
+	pdf.AddPage()
+	return pdf
+}
+
+// pageTextWidth is the width between the left and right margins
+func pageTextWidth(pdf *gofpdf.Fpdf) float64 {
+	w, _ := pdf.GetPageSize()
+	left, _, right, _ := pdf.GetMargins()
+	return w - left - right
+}
+
+// pdfNumberTableFontSize is the largest Courier size, from 10pt down to
+// 6pt, at which every line fits the page, so long repo paths shrink the
+// table instead of wrapping its last column
+func pdfNumberTableFontSize(pdf *gofpdf.Fpdf, lines []string) float64 {
+	width := pageTextWidth(pdf)
+	size := 10.0
+	for ; size > 6; size -= 0.5 {
+		pdf.SetFont("Courier", "", size)
+		fits := true
+		for _, l := range lines {
+			if pdf.GetStringWidth(l) > width {
+				fits = false
+				break
+			}
+		}
+		if fits {
+			break
+		}
+	}
+	return size
 }
