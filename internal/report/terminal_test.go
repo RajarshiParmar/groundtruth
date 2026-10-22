@@ -102,6 +102,8 @@ func TestWriteSummary_HighlightHints(t *testing.T) {
 			[]string{"  Highlights           none: no commits match highlights.types (3 of 4 commits classified)\n"}, `Add "unknown"`},
 		{"low coverage", model.Highlights{Total: 10, Classified: 3, Groups: oneGroup},
 			[]string{"3 of 10 commits classified (30%)", `Add "unknown" to highlights.types`}, ""},
+		{"low coverage, already opted in", model.Highlights{Total: 10, Classified: 3, Groups: oneGroup, IncludesUnknown: true},
+			[]string{"3 of 10 commits classified (30%)"}, `Add "unknown"`},
 		{"enough coverage", model.Highlights{Total: 10, Classified: 6, Groups: oneGroup},
 			[]string{"6 of 10 commits classified (60%)"}, `Add "unknown"`},
 	}

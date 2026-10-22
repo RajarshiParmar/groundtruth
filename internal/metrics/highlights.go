@@ -37,7 +37,7 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 		limit = DefaultHighlightsPerScope
 	}
 
-	h := model.Highlights{SummaryLimit: limit}
+	h := model.Highlights{SummaryLimit: limit, IncludesUnknown: slices.Contains(types, "unknown")}
 	groups := make(map[string]*model.HighlightGroup)
 
 	for _, c := range commits {

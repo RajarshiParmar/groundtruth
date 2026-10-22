@@ -26,6 +26,10 @@ type Highlights struct {
 	Classified   int              // non-merge commits whose Type != "unknown"
 	Total        int              // non-merge commits in the report
 	SummaryLimit int              // items per group in the short view; 0 means no limit
+
+	// IncludesUnknown is set when unclassified commits are selected, so writers
+	// don't suggest an opt-in the user already made
+	IncludesUnknown bool
 }
 
 // Summary returns the short view: each group's Items cut to SummaryLimit.

@@ -47,7 +47,7 @@ func highlightsStatus(h model.Highlights) (status, hint string, empty bool) {
 	}
 
 	status = fmt.Sprintf("%d of %d commits classified (%d%%)", h.Classified, h.Total, h.Classified*100/h.Total)
-	if h.Classified*2 < h.Total {
+	if h.Classified*2 < h.Total && !h.IncludesUnknown {
 		hint = "Most commits don't use Conventional Commits. " + unknownHint
 	}
 	return status, hint, false

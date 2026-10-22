@@ -139,3 +139,14 @@ func TestHighlights_TicketsAndDefaults(t *testing.T) {
 		t.Errorf("no commits: %+v, want empty", h)
 	}
 }
+
+// Writers use IncludesUnknown to stop suggesting an opt-in the user already made
+func TestHighlights_IncludesUnknown(t *testing.T) {
+	commits := []model.ClassifiedCommit{hlCommit("u1", "unknown", "", 1)}
+	if h := computeHighlights(t, &HighlightsMetric{}, commits); h.IncludesUnknown {
+		t.Error("default types: IncludesUnknown = true, want false")
+	}
+	if h := computeHighlights(t, &HighlightsMetric{Types: []string{"feat", "unknown"}}, commits); !h.IncludesUnknown {
+		t.Error(`types with "unknown": IncludesUnknown = false, want true`)
+	}
+}
