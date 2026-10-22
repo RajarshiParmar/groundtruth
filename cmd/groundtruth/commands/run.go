@@ -130,6 +130,11 @@ func RunCmd() *cobra.Command {
 			registry := metrics.NewRegistry()
 			registry.Register(&metrics.CommitCountMetric{})
 			registry.Register(&metrics.CoAuthoredMetric{})
+			registry.Register(&metrics.RepoBreakdownMetric{
+				LinesChanged: cfg.Metrics.LinesChanged,
+				FilesChanged: cfg.Metrics.FilesChanged,
+				CoAuthored:   cfg.Identity.CoAuthored,
+			})
 			registry.Register(&metrics.CommitByTypeMetric{})
 			// The excluded keys appear only when exclude_paths is set
 			showExcluded := len(cfg.ExcludePaths) > 0
@@ -167,6 +172,13 @@ func RunCmd() *cobra.Command {
 			// Co-author credit is opt-in, so its count is too
 			if cfg.Identity.CoAuthored {
 				if m, ok := registry.Get("co_authored"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			// A breakdown needs at least two repositories with commits
+			if cfg.Metrics.RepoBreakdown && metrics.RepoCount(classified) >= 2 {
+				if m, ok := registry.Get("repo_breakdown"); ok {
 					results = append(results, m.Compute(classified))
 				}
 			}

@@ -69,6 +69,7 @@ type Metrics struct {
 	CommitByScope     bool `yaml:"commit_by_scope"`
 	Highlights        bool `yaml:"highlights"`
 	Tickets           bool `yaml:"tickets"`
+	RepoBreakdown     bool `yaml:"repo_breakdown"`
 }
 
 // Report is the retired report.sections block; metrics.* decides what is shown
