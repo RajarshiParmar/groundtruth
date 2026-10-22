@@ -36,6 +36,7 @@ func TestConventionalTypeAndScope(t *testing.T) {
 		{"feat: add login", "feat", ""},
 		{"fix(auth): handle expiry", "fix", "auth"},
 		{"FEAT(API): shout", "feat", "api"},
+		{"feat( Auth ): padded scope", "feat", "auth"},
 		{"  docs: leading space\n\nbody", "docs", ""},
 		{"refactor(core)!: rename", "refactor", "core"},
 		{"Merge branch 'feature' into dev", "unknown", ""},

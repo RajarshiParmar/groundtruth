@@ -37,7 +37,7 @@ func (c *conventionalClassifier) Classify(commit model.Commit) model.ClassifiedC
 		case "type":
 			result.Type = strings.ToLower(matches[i])
 		case "scope":
-			result.Scope = strings.ToLower(matches[i])
+			result.Scope = strings.ToLower(strings.TrimSpace(matches[i]))
 		case "breaking":
 			result.Breaking = matches[i] != ""
 		case "message":
