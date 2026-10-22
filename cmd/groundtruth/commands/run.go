@@ -53,8 +53,9 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 
-			// Resolve time range
-			from, to, err := config.TimeRangeToBounds(cfg.TimeRange)
+			// Resolve time range; the md period label reuses this instant
+			now := time.Now()
+			from, to, err := config.TimeRangeBoundsAt(cfg.TimeRange, now)
 			if err != nil {
 				return err
 			}
@@ -233,7 +234,7 @@ func RunCmd() *cobra.Command {
 						return err
 					}
 				case "md":
-					period := config.PeriodLabel(cfg.TimeRange, time.Now())
+					period := config.PeriodLabel(cfg.TimeRange, now)
 					if err := report.WriteMarkdown(results, cfg.Output.Directory, period); err != nil {
 						return err
 					}

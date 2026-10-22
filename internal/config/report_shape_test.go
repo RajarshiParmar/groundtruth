@@ -65,3 +65,18 @@ func TestPeriodLabel(t *testing.T) {
 		}
 	}
 }
+
+func TestTimeRangeBoundsAt(t *testing.T) {
+	// One "now" for the bounds and the label, so they cannot disagree
+	now := time.Date(2025, 5, 31, 23, 59, 0, 0, time.Local)
+	from, to, err := TimeRangeBoundsAt(TimeRange{Last: "3m"}, now)
+	if err != nil {
+		t.Fatalf("TimeRangeBoundsAt: %v", err)
+	}
+	if !to.Equal(now) || from.Format("2006-01-02") != "2025-03-03" {
+		t.Errorf("bounds = %v, %v; want 2025-03-03 to %v", from, to, now)
+	}
+	if want := "last 3m (" + from.Format("2006-01-02") + " to " + to.Format("2006-01-02") + ")"; PeriodLabel(TimeRange{Last: "3m"}, now) != want {
+		t.Errorf("label does not match the bounds %q", want)
+	}
+}

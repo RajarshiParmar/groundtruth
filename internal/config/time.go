@@ -6,7 +6,12 @@ import (
 )
 
 func TimeRangeToBounds(tr TimeRange) (time.Time, time.Time, error) {
-	now := time.Now()
+	return TimeRangeBoundsAt(tr, time.Now())
+}
+
+// TimeRangeBoundsAt is TimeRangeToBounds with a fixed "now", so a caller can
+// give PeriodLabel the same instant and the label matches the scanned range
+func TimeRangeBoundsAt(tr TimeRange, now time.Time) (time.Time, time.Time, error) {
 
 	if tr.Last != "" {
 		years, months, days, ok := lastOffset(tr.Last)
