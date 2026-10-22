@@ -8,8 +8,10 @@ import (
 	"github.com/RajarshiParmar/groundtruth/internal/classify"
 	"github.com/RajarshiParmar/groundtruth/internal/config"
 	"github.com/RajarshiParmar/groundtruth/internal/git"
+	"github.com/RajarshiParmar/groundtruth/internal/identity"
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
 	"github.com/RajarshiParmar/groundtruth/internal/model"
+	"github.com/RajarshiParmar/groundtruth/internal/paths"
 	"github.com/RajarshiParmar/groundtruth/internal/report"
 	"github.com/spf13/cobra"
 )
@@ -60,16 +62,25 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 
-			// Build allowed author email set
-			emails := make(map[string]bool)
+			// Decide which commits are the user's and which paths count
+			opts := git.ScanOptions{
+				CoAuthored:    cfg.Identity.CoAuthored,
+				AnalyzeMerges: cfg.MergeCommits.Mode == "analyze",
+			}
 			for _, a := range cfg.Identity.Authors {
 				if a.Email != "" {
-					emails[a.Email] = true
+					opts.Emails = append(opts.Emails, a.Email)
 				}
+			}
+			if opts.Mailmap, err = personalMailmap(cfg.Identity.Mailmap); err != nil {
+				return err
+			}
+			if opts.Exclude, err = paths.NewExcluder(cfg.ExcludePaths); err != nil {
+				return err
 			}
 
 			// Scan commits
-			scans := git.ScanRepos(repoPaths, from, to, emails, cfg.MergeCommits.Mode == "analyze")
+			scans := git.ScanRepos(repoPaths, from, to, opts)
 
 			commits, scanWarnings, duplicates, err := git.MergeScans(scans)
 			for _, w := range scanWarnings {
@@ -255,4 +266,26 @@ func RunCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// personalMailmap parses identity.mailmap, printing malformed lines as warnings
+func personalMailmap(path string) (identity.Mailmap, error) {
+	if path == "" {
+		return identity.Mailmap{}, nil
+	}
+	path, err := config.ExpandHome(path)
+	if err != nil {
+		return identity.Mailmap{}, fmt.Errorf("identity.mailmap: %w", err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return identity.Mailmap{}, fmt.Errorf("identity.mailmap: %w", err)
+	}
+	defer f.Close()
+
+	m, warnings := identity.ParseMailmap(f, path)
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w)
+	}
+	return m, nil
 }

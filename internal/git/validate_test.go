@@ -111,7 +111,7 @@ func TestLinkedWorktree(t *testing.T) {
 	if err := ValidateRepo(wtPath); err != nil {
 		t.Fatalf("ValidateRepo(worktree): %v", err)
 	}
-	commits, err := NewScanner(wtPath).Scan(day(-1), day(1), nil)
+	commits, err := NewScanner(wtPath).Scan(day(-1), day(1))
 	if err != nil {
 		t.Fatalf("Scan(worktree): %v", err)
 	}

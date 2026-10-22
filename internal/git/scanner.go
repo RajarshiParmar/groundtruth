@@ -1,21 +1,42 @@
 package git
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
+	"github.com/RajarshiParmar/groundtruth/internal/identity"
 	"github.com/RajarshiParmar/groundtruth/internal/model"
+	"github.com/RajarshiParmar/groundtruth/internal/paths"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-type Scanner struct {
-	RepoPath string
+// ScanOptions decides which commits are the user's and what they count
+type ScanOptions struct {
+	// Emails are the user's author emails; empty keeps every author
+	Emails []string
+
+	// Mailmap is the personal mailmap; it wins over each repo's .mailmap
+	Mailmap identity.Mailmap
+
+	// CoAuthored keeps commits that name the user in a Co-authored-by trailer
+	CoAuthored bool
+
+	// Exclude keeps matching paths out of the files and lines counts
+	Exclude *paths.Excluder
 
 	// AnalyzeMerges records, for each merge commit, the commits it brought in
 	AnalyzeMerges bool
+}
+
+type Scanner struct {
+	RepoPath string
+	Options  ScanOptions
 
 	// Warnings collects per-commit problems that did not stop the scan
 	Warnings []string
@@ -25,9 +46,9 @@ func NewScanner(path string) *Scanner {
 	return &Scanner{RepoPath: path}
 }
 
-// Scan returns commits authored in [from, to) by one of allowedEmails
-// (all authors if empty), ordered oldest → newest.
-func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]model.Commit, error) {
+// Scan returns the user's commits authored in [from, to), ordered
+// oldest → newest. See ScanOptions for which commits are the user's.
+func (s *Scanner) Scan(from, to time.Time) ([]model.Commit, error) {
 	repo, err := openRepo(s.RepoPath)
 	if err != nil {
 		return nil, err
@@ -43,8 +64,10 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 		return nil, err
 	}
 
+	matcher := identity.NewMatcher(s.Options.Emails, identity.Merge(s.repoMailmap(repo, head), s.Options.Mailmap))
+
 	var mainline map[plumbing.Hash][]string
-	if s.AnalyzeMerges {
+	if s.Options.AnalyzeMerges {
 		mainline, err = mainlineMerges(head)
 		if err != nil {
 			return nil, fmt.Errorf("merge analysis: %w", err)
@@ -65,8 +88,12 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 			return nil
 		}
 
-		if len(allowedEmails) > 0 && !allowedEmails[c.Author.Email] {
-			return nil
+		coAuthored := false
+		if !matcher.Match(c.Author.Name, c.Author.Email) {
+			if !s.Options.CoAuthored || !namesUser(matcher, c.Message) {
+				return nil
+			}
+			coAuthored = true
 		}
 
 		commit := model.Commit{
@@ -77,13 +104,14 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 			Timestamp:   ts,
 			ParentCount: len(c.ParentHashes),
 			IsMerge:     len(c.ParentHashes) > 1,
+			CoAuthored:  coAuthored,
 		}
 
 		if !commit.IsMerge {
 			s.addDiffStats(c, &commit)
 		}
 
-		if commit.IsMerge && s.AnalyzeMerges {
+		if commit.IsMerge && s.Options.AnalyzeMerges {
 			if merged, ok := mainline[c.Hash]; ok {
 				commit.MergedHashes = merged
 			} else {
@@ -110,6 +138,48 @@ func (s *Scanner) Scan(from, to time.Time, allowedEmails map[string]bool) ([]mod
 	}
 
 	return commits, nil
+}
+
+// namesUser reports whether a Co-authored-by trailer in message is the user
+func namesUser(m *identity.Matcher, message string) bool {
+	for _, p := range identity.CoAuthors(message) {
+		if m.Match(p.Name, p.Email) {
+			return true
+		}
+	}
+	return false
+}
+
+// repoMailmap reads the repo's .mailmap: from the worktree, or from HEAD's
+// tree in a bare repo. A missing file is an empty mailmap.
+func (s *Scanner) repoMailmap(repo *git.Repository, head *object.Commit) identity.Mailmap {
+	var r io.ReadCloser
+	wt, err := repo.Worktree()
+	switch {
+	case err == nil:
+		r, err = wt.Filesystem.Open(".mailmap")
+		if errors.Is(err, os.ErrNotExist) {
+			return identity.Mailmap{}
+		}
+	case errors.Is(err, git.ErrIsBareRepository):
+		var f *object.File
+		f, err = head.File(".mailmap")
+		if errors.Is(err, object.ErrFileNotFound) {
+			return identity.Mailmap{}
+		}
+		if err == nil {
+			r, err = f.Reader()
+		}
+	}
+	if err != nil {
+		s.Warnings = append(s.Warnings, fmt.Sprintf("skipped .mailmap: %v", err))
+		return identity.Mailmap{}
+	}
+	defer r.Close()
+
+	m, warnings := identity.ParseMailmap(r, ".mailmap")
+	s.Warnings = append(s.Warnings, warnings...)
+	return m
 }
 
 // addDiffStats fills in the files and lines a commit changed relative to its
@@ -148,7 +218,11 @@ func (s *Scanner) addDiffStats(c *object.Commit, commit *model.Commit) {
 		if name == "" {
 			name = ch.From.Name
 		}
-		commit.FilesChanged = append(commit.FilesChanged, name)
+		if s.Options.Exclude.Match(name) {
+			commit.ExcludedFiles = append(commit.ExcludedFiles, name)
+		} else {
+			commit.FilesChanged = append(commit.FilesChanged, name)
+		}
 
 		// Submodule entries point at commits in another repo, so they have no blob to diff
 		if ch.From.TreeEntry.Mode != filemode.Submodule && ch.To.TreeEntry.Mode != filemode.Submodule {
@@ -162,6 +236,10 @@ func (s *Scanner) addDiffStats(c *object.Commit, commit *model.Commit) {
 		return
 	}
 	for _, st := range patch.Stats() {
+		if s.Options.Exclude.Match(st.Name) {
+			commit.ExcludedLines += st.Addition + st.Deletion
+			continue
+		}
 		commit.LinesAdded += st.Addition
 		commit.LinesRemoved += st.Deletion
 	}

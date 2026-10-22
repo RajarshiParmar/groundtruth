@@ -36,6 +36,7 @@ type testRepo struct {
 type testCommit struct {
 	msg   string
 	email string // defaults to testEmail
+	name  string // defaults to "Test"
 	when  time.Time
 	files map[string]string // path → contents, or deleted
 	// parents defaults to HEAD; set two or more for a merge
@@ -89,7 +90,11 @@ func (r *testRepo) commit(c testCommit) plumbing.Hash {
 	if email == "" {
 		email = testEmail
 	}
-	sig := &object.Signature{Name: "Test", Email: email, When: c.when}
+	name := c.name
+	if name == "" {
+		name = "Test"
+	}
+	sig := &object.Signature{Name: name, Email: email, When: c.when}
 
 	h, err := r.wt.Commit(c.msg, &git.CommitOptions{
 		Author:            sig,
