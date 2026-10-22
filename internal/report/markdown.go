@@ -79,7 +79,7 @@ func highlightBlocks(h model.Highlights) []string {
 
 		items := make([]string, len(g.Items))
 		for i, it := range g.Items {
-			items[i] = "- " + mdItem(it.Subject) + mdTickets(it.Tickets)
+			items[i] = "- " + mdItem(it.Subject) + pairedSuffix(it) + mdTickets(it.Tickets)
 		}
 		blocks = append(blocks, strings.Join(items, "\n"))
 	}
@@ -91,7 +91,7 @@ func highlightBlocks(h model.Highlights) []string {
 			if it.Scope != "" {
 				label = mdItem(it.Scope) + ": " + mdEscape(it.Subject)
 			}
-			items[i] = "- " + label + mdTickets(it.Tickets)
+			items[i] = "- " + label + pairedSuffix(it) + mdTickets(it.Tickets)
 		}
 		blocks = append(blocks, "### Breaking changes", strings.Join(items, "\n"))
 	}
