@@ -122,7 +122,7 @@ It starts with the period, then lists **every** highlight grouped by scope (not 
 
 ### auth
 
-feat: 5 · fix: 2
+feat: 1 · fix: 1
 
 - add SSO login (PROJ-12, #88)
 - handle expired tokens (#88)
