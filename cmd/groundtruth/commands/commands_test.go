@@ -322,3 +322,102 @@ func TestValidate_WarnsAboutReportSections(t *testing.T) {
 		t.Errorf("stderr = %q, want the report.sections warning", stderr)
 	}
 }
+
+// makeAccurateRepo has a .mailmap for an old email, a go.sum change and a
+// commit by another author that names email as a co-author
+func makeAccurateRepo(t *testing.T, dir string) {
+	t.Helper()
+	repo, err := git.PlainInit(dir, false)
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatalf("worktree: %v", err)
+	}
+
+	n := 0
+	commit := func(msg, author string, files map[string]string) {
+		t.Helper()
+		n++
+		for name, body := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0644); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			if _, err := wt.Add(name); err != nil {
+				t.Fatalf("add: %v", err)
+			}
+		}
+		sig := &object.Signature{Name: "T", Email: author, When: when.Add(time.Duration(n) * time.Hour)}
+		if _, err := wt.Commit(msg, &git.CommitOptions{Author: sig, Committer: sig}); err != nil {
+			t.Fatalf("commit: %v", err)
+		}
+	}
+
+	commit("chore: init", email, map[string]string{
+		".mailmap": "<" + email + "> <old@laptop.local>\n",
+		"main.go":  "package main\n",
+		"go.sum":   "a\nb\n",
+	})
+	commit("fix: from the old laptop", "old@laptop.local", map[string]string{"f.txt": "x\n"})
+	commit("feat: paired\n\nCo-authored-by: Me <"+email+">\n", "pair@example.com", map[string]string{"g.txt": "y\n"})
+	commit("docs: other author", "other@example.com", map[string]string{"h.txt": "z\n"})
+}
+
+func TestRun_AccurateNumbers(t *testing.T) {
+	repo := t.TempDir()
+	makeAccurateRepo(t, repo)
+	out := filepath.Join(t.TempDir(), "report")
+
+	cfg := writeConfig(t, repo, false, "ignore", "  commit_count: true\n  lines_changed: true\n  files_changed: true\nexclude_paths: [go.sum]")
+	editConfig(t, cfg, func(s string) string {
+		return strings.Replace(s, "identity:\n", "identity:\n  co_authored: true\n", 1)
+	})
+	if err := execute(t, RunCmd(), "--config", cfg, "--output", out); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	// init, the old-email commit (via .mailmap) and the paired one; not the docs commit
+	if got := csvValue(t, filepath.Join(out, "commit_count.csv"), "commit_count"); got != "3" {
+		t.Errorf("commit_count = %s, want 3", got)
+	}
+	if got := csvValue(t, filepath.Join(out, "co_authored.csv"), "co_authored"); got != "1" {
+		t.Errorf("co_authored = %q, want 1", got)
+	}
+	lines := filepath.Join(out, "lines_changed.csv")
+	if excluded, added := csvValue(t, lines, "excluded"), csvValue(t, lines, "added"); excluded != "2" || added != "4" {
+		t.Errorf("lines_changed excluded=%q added=%q, want 2 (go.sum) and 4", excluded, added)
+	}
+	if got := csvValue(t, filepath.Join(out, "files_changed.csv"), "excluded"); got != "1" {
+		t.Errorf("files_changed excluded = %q, want 1", got)
+	}
+}
+
+// A config without the new keys reports exactly what it did before
+func TestRun_NoNewKeysUnchanged(t *testing.T) {
+	repo := t.TempDir()
+	makeAccurateRepo(t, repo)
+	out := filepath.Join(t.TempDir(), "report")
+
+	cfg := writeConfig(t, repo, false, "ignore", "  commit_count: true\n  lines_changed: true\n  files_changed: true")
+	if err := execute(t, RunCmd(), "--config", cfg, "--output", out); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	for _, name := range []string{"lines_changed.csv", "files_changed.csv"} {
+		data, err := os.ReadFile(filepath.Join(out, name))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if strings.Contains(string(data), "excluded") {
+			t.Errorf("%s has an excluded row without exclude_paths:\n%s", name, data)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(out, "co_authored.csv")); !os.IsNotExist(err) {
+		t.Errorf("co_authored.csv written without identity.co_authored (stat err %v)", err)
+	}
+	// The repo .mailmap still applies: init and the old-email commit
+	if got := csvValue(t, filepath.Join(out, "commit_count.csv"), "commit_count"); got != "2" {
+		t.Errorf("commit_count = %s, want 2", got)
+	}
+}
