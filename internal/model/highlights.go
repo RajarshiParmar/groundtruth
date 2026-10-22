@@ -5,6 +5,7 @@ import "time"
 // Highlight is one commit worth mentioning in an appraisal
 type Highlight struct {
 	Hash      string
+	Repo      string // set only when Highlights.ByRepo
 	Type      string
 	Scope     string
 	Subject   string
@@ -15,6 +16,7 @@ type Highlight struct {
 }
 
 type HighlightGroup struct {
+	Repo   string         // set only when Highlights.ByRepo
 	Scope  string         // "general" when the commit has no scope
 	Counts map[string]int // highlights per type
 	Items  []Highlight    // newest first
@@ -35,6 +37,10 @@ type Highlights struct {
 	// IncludesCoAuthored is set when identity.co_authored is on, so writers
 	// add a paired column
 	IncludesCoAuthored bool
+
+	// ByRepo is set when the commits come from two or more repositories:
+	// groups are per (repo, scope) and writers show repo headings
+	ByRepo bool
 }
 
 // Summary returns the short view: each group's Items cut to SummaryLimit.

@@ -40,12 +40,20 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 		limit = DefaultHighlightsPerScope
 	}
 
+	repos := make(map[string]bool)
+	for _, c := range commits {
+		if !c.IsMerge && c.Repo != "" {
+			repos[c.Repo] = true
+		}
+	}
+
 	h := model.Highlights{
 		SummaryLimit:       limit,
 		IncludesUnknown:    slices.Contains(types, "unknown"),
 		IncludesCoAuthored: m.CoAuthored,
+		ByRepo:             len(repos) >= 2,
 	}
-	groups := make(map[string]*model.HighlightGroup)
+	groups := make(map[[2]string]*model.HighlightGroup)
 
 	for _, c := range commits {
 		if c.IsMerge {
@@ -70,12 +78,16 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 			Tickets:   m.Matcher.Find(c.Message),
 			Paired:    c.CoAuthored,
 		}
+		if h.ByRepo {
+			item.Repo = c.Repo
+		}
 
 		scope := scopeOrGeneral(c.Scope)
-		g, ok := groups[scope]
+		key := [2]string{item.Repo, scope}
+		g, ok := groups[key]
 		if !ok {
-			g = &model.HighlightGroup{Scope: scope, Counts: make(map[string]int)}
-			groups[scope] = g
+			g = &model.HighlightGroup{Repo: item.Repo, Scope: scope, Counts: make(map[string]int)}
+			groups[key] = g
 		}
 		g.Counts[c.Type]++
 		g.Items = append(g.Items, item)
@@ -90,6 +102,10 @@ func (m *HighlightsMetric) Compute(commits []model.ClassifiedCommit) Result {
 		h.Groups = append(h.Groups, *g)
 	}
 	slices.SortFunc(h.Groups, func(a, b model.HighlightGroup) int {
+		// Repo is "" for everyone unless grouping by repo
+		if n := cmp.Compare(a.Repo, b.Repo); n != 0 {
+			return n
+		}
 		if n := cmp.Compare(len(b.Items), len(a.Items)); n != 0 {
 			return n
 		}

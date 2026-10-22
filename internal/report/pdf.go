@@ -165,7 +165,10 @@ func highlightLinesPDF(h model.Highlights) []pdfLine {
 		lines = append(lines, pdfLine{"", hint})
 	}
 
-	for _, g := range h.Groups {
+	for i, g := range h.Groups {
+		if h.ByRepo && (i == 0 || h.Groups[i-1].Repo != g.Repo) {
+			lines = append(lines, pdfLine{"B", g.Repo})
+		}
 		lines = append(lines, pdfLine{"I", g.Scope + "  (" + strings.Join(keyValueParts(g.Counts), "  ") + ")"})
 		for _, it := range g.Items {
 			lines = append(lines, pdfLine{"", "- " + it.Subject + pairedSuffix(it) + ticketSuffix(it.Tickets)})

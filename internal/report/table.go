@@ -86,6 +86,9 @@ func highlightTable(h model.Highlights) table {
 	if h.IncludesCoAuthored {
 		t.Header = append(t.Header, "paired")
 	}
+	if h.ByRepo {
+		t.Header = append([]string{"repo"}, t.Header...)
+	}
 
 	for _, g := range h.Groups {
 		for _, it := range g.Items {
@@ -101,6 +104,9 @@ func highlightTable(h model.Highlights) table {
 			}
 			if h.IncludesCoAuthored {
 				row = append(row, it.Paired)
+			}
+			if h.ByRepo {
+				row = append([]any{g.Repo}, row...)
 			}
 			t.Rows = append(t.Rows, row)
 		}

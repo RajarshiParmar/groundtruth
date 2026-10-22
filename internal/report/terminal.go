@@ -177,13 +177,21 @@ func printHighlights(h model.Highlights) {
 		fmt.Printf("    %s\n", hint)
 	}
 
-	for _, g := range h.Groups {
-		fmt.Printf("    %-18s %s\n", g.Scope, strings.Join(keyValueParts(g.Counts), "  "))
+	// Scopes sit one level deeper under a repo heading
+	indent := ""
+	if h.ByRepo {
+		indent = "  "
+	}
+	for i, g := range h.Groups {
+		if h.ByRepo && (i == 0 || h.Groups[i-1].Repo != g.Repo) {
+			fmt.Printf("    %s\n", g.Repo)
+		}
+		fmt.Printf("%s    %-18s %s\n", indent, g.Scope, strings.Join(keyValueParts(g.Counts), "  "))
 		for _, it := range g.Items {
-			fmt.Printf("      - %s%s%s\n", it.Subject, pairedSuffix(it), ticketSuffix(it.Tickets))
+			fmt.Printf("%s      - %s%s%s\n", indent, it.Subject, pairedSuffix(it), ticketSuffix(it.Tickets))
 		}
 		if more := moreCount(g); more > 0 {
-			fmt.Printf("      … %d more\n", more)
+			fmt.Printf("%s      … %d more\n", indent, more)
 		}
 	}
 

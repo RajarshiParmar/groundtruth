@@ -82,8 +82,16 @@ func highlightBlocks(h model.Highlights) []string {
 		blocks = append(blocks, hint)
 	}
 
-	for _, g := range h.Groups {
-		blocks = append(blocks, "### "+mdHeading(g.Scope), strings.Join(keyValueParts(g.Counts), " · "))
+	// Scopes go one heading level deeper under a repo heading
+	scopeHeading := "### "
+	if h.ByRepo {
+		scopeHeading = "#### "
+	}
+	for i, g := range h.Groups {
+		if h.ByRepo && (i == 0 || h.Groups[i-1].Repo != g.Repo) {
+			blocks = append(blocks, "### "+mdHeading(g.Repo))
+		}
+		blocks = append(blocks, scopeHeading+mdHeading(g.Scope), strings.Join(keyValueParts(g.Counts), " · "))
 
 		items := make([]string, len(g.Items))
 		for i, it := range g.Items {
@@ -98,6 +106,10 @@ func highlightBlocks(h model.Highlights) []string {
 			label := mdItem(it.Subject)
 			if it.Scope != "" {
 				label = mdItem(it.Scope) + ": " + mdEscape(it.Subject)
+			}
+			if it.Repo != "" {
+				// The repo now leads the item, so it gets the list-marker escaping
+				label = mdItem(it.Repo) + " · " + label
 			}
 			items[i] = "- " + label + pairedSuffix(it) + mdTickets(it.Tickets)
 		}

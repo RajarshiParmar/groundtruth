@@ -45,14 +45,15 @@ func ticketSuffix(tickets []string) string {
 	return " [" + strings.Join(tickets, " ") + "]"
 }
 
-// breakingLabel is "scope: subject (date)", without the scope for unscoped
-// commits; paired commits are tagged after the subject
+// breakingLabel is "repo · scope: subject (date)", without the repo unless
+// grouping by repo and without the scope for unscoped commits; paired
+// commits are tagged after the subject
 func breakingLabel(it model.Highlight) string {
 	label := it.Subject + pairedSuffix(it)
 	if it.Scope != "" {
 		label = it.Scope + ": " + label
 	}
-	return label + " (" + it.Timestamp.Format("2006-01-02") + ")"
+	return repoPrefix(it) + label + " (" + it.Timestamp.Format("2006-01-02") + ")"
 }
 
 // pairedSuffix tags a highlight the user co-authored rather than authored
@@ -61,4 +62,12 @@ func pairedSuffix(it model.Highlight) string {
 		return ""
 	}
 	return " (paired)"
+}
+
+// repoPrefix names the repo in front of a breaking change when grouping by repo
+func repoPrefix(it model.Highlight) string {
+	if it.Repo == "" {
+		return ""
+	}
+	return it.Repo + " · "
 }
