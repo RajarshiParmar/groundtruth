@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,6 +19,8 @@ type Config struct {
 	Report       Report       `yaml:"report"`
 	Output       Output       `yaml:"output"`
 	Scoring      Scoring      `yaml:"scoring"`
+	Highlights   Highlights   `yaml:"highlights"`
+	Tickets      Tickets      `yaml:"tickets"`
 }
 
 type Repository struct {
@@ -52,6 +55,9 @@ type Metrics struct {
 	ActivityTimeline  bool `yaml:"activity_timeline"`
 	MergeSummaries    bool `yaml:"merge_summaries"`
 	ContributionScore bool `yaml:"contribution_score"`
+	CommitByScope     bool `yaml:"commit_by_scope"`
+	Highlights        bool `yaml:"highlights"`
+	Tickets           bool `yaml:"tickets"`
 }
 
 type Report struct {
@@ -63,6 +69,18 @@ type ReportSections struct {
 	Metrics  bool `yaml:"metrics"`
 	Timeline bool `yaml:"timeline"`
 	Merges   bool `yaml:"merges"`
+}
+
+// Highlights configures the highlights metric. Zero values fall back to the
+// defaults defined in the metrics package.
+type Highlights struct {
+	Types    []string `yaml:"types"`
+	PerScope int      `yaml:"per_scope"`
+}
+
+// Tickets lists issue-tracker keys (e.g. PROJ for PROJ-123); "#123" is always matched
+type Tickets struct {
+	Prefixes []string `yaml:"prefixes"`
 }
 
 type Output struct {
@@ -170,7 +188,10 @@ func validate(cfg *Config) error {
 		cfg.Metrics.FilesChanged ||
 		cfg.Metrics.ActivityTimeline ||
 		cfg.Metrics.MergeSummaries ||
-		cfg.Metrics.ContributionScore) {
+		cfg.Metrics.ContributionScore ||
+		cfg.Metrics.CommitByScope ||
+		cfg.Metrics.Highlights ||
+		cfg.Metrics.Tickets) {
 		return fmt.Errorf("metrics: at least one metric must be enabled")
 	}
 
@@ -214,5 +235,25 @@ func validate(cfg *Config) error {
 		}
 	}
 
+	// highlights and tickets
+	if cfg.Highlights.PerScope < 0 {
+		return fmt.Errorf("highlights.per_scope must be non-negative")
+	}
+	for _, t := range cfg.Highlights.Types {
+		if !commitTypePattern.MatchString(t) {
+			return fmt.Errorf("highlights.types: %q must be a lowercase word", t)
+		}
+	}
+	for _, p := range cfg.Tickets.Prefixes {
+		if !ticketPrefixPattern.MatchString(p) {
+			return fmt.Errorf("tickets.prefixes: %q must match ^[A-Z][A-Z0-9]*$ (e.g. PROJ)", p)
+		}
+	}
+
 	return nil
 }
+
+var (
+	commitTypePattern   = regexp.MustCompile(`^[a-z]+$`)
+	ticketPrefixPattern = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
+)
