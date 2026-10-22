@@ -289,7 +289,8 @@ compare:
 | `last: 6m` | the 6 months before that |
 | `last: 30d` | the 30 days before that |
 
-- Every enabled metric that is a number or a count is compared: `commit_count`, `co_authored`, and each key of `lines_changed`, `files_changed`, `commit_by_type`, `commit_by_scope` and `tickets`, as rows such as `commit_by_type.feat`. A key that appears in only one period counts as 0 in the other.
+- Every enabled metric that is a number or a count is compared: `commit_count`, `co_authored`, and each key of `lines_changed`, `files_changed`, `commit_by_type` and `commit_by_scope`, as rows such as `commit_by_type.feat`. A key that appears in only one period counts as 0 in the other.
+- `tickets` is compared as one row, the number of distinct tickets your commits mention, rather than a row per ticket.
 - Highlights, the activity timeline, merge summaries and the per-repository table cover the current period only. The contribution score is not compared: it is off by default, and a trend would make it a headline number.
 - The change column is the plain difference (`+6`, `-15`, `0`). Percentages are left out on purpose: going from 1 to 3 commits in a scope reads as `+200%` and says little.
 - `comparison.csv` and the `comparison` sheet have the columns `metric, current, previous, change`. The terminal, PDF and `report.md` show which two periods were compared above the table.

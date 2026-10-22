@@ -53,3 +53,14 @@ func TestCompare_EmptyPrevious(t *testing.T) {
 		t.Errorf("%d rows, want 4", got)
 	}
 }
+
+// Tickets compare as one total, the number of distinct tickets, not a row per ticket
+func TestCompare_TicketsAsOneRow(t *testing.T) {
+	current := []Result{{Name: "tickets", Value: map[string]int{"PROJ-1": 3, "PROJ-2": 1, "#7": 1}}}
+	previous := []Result{{Name: "tickets", Value: map[string]int{"PROJ-1": 2, "PROJ-9": 4}}}
+
+	got := Compare(current, previous, "").Rows
+	if want := []model.NumberRow{{Label: "tickets", Values: []int{3, 2, 1}}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("rows = %+v, want %+v", got, want)
+	}
+}

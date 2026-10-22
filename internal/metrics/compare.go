@@ -8,7 +8,8 @@ import (
 )
 
 // Compare puts the totals of two periods side by side. Counts become one row
-// per key ("commit_by_type.feat"); lists, series and the contribution score
+// per key ("commit_by_type.feat"), except tickets, whose total is how many
+// distinct tickets were mentioned; lists, series and the contribution score
 // are not totals and are left out. A key missing from one period counts as 0.
 func Compare(current, previous []Result, caption string) model.NumberTable {
 	t := model.NumberTable{
@@ -33,6 +34,11 @@ func Compare(current, previous []Result, caption string) model.NumberTable {
 
 		case map[string]int:
 			prev, _ := before[r.Name].(map[string]int)
+			// A row per ticket would be a list, not a total
+			if r.Name == "tickets" {
+				row(r.Name, len(v), len(prev))
+				continue
+			}
 			keys := maps.Clone(v)
 			maps.Copy(keys, prev)
 			for _, k := range slices.Sorted(maps.Keys(keys)) {
