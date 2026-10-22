@@ -12,7 +12,8 @@ import (
 
 // table is one tabular unit of output: a CSV file, an XLSX sheet or a
 // Markdown table. Cells keep their type (int, float64, string, bool or
-// time.Time) so each writer can format them its own way.
+// time.Time, or map[string]int for per-type counts) so each writer can
+// format them its own way.
 type table struct {
 	Suffix string // appended to the metric name: "" or "_weekly" / "_monthly"
 	Header []string
@@ -39,7 +40,7 @@ func tablesFor(r metrics.Result) ([]table, error) {
 	case []model.MergeSummary:
 		t := table{Header: []string{"hash", "timestamp", "message", "commit_count", "types"}}
 		for _, m := range v {
-			t.Rows = append(t.Rows, []any{m.Hash, m.Timestamp, m.Message, m.CommitCount, fmt.Sprintf("%v", m.Types)})
+			t.Rows = append(t.Rows, []any{m.Hash, m.Timestamp, m.Message, m.CommitCount, m.Types})
 		}
 		return []table{t}, nil
 

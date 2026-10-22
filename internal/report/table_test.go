@@ -28,7 +28,7 @@ func TestTablesFor(t *testing.T) {
 			{Hash: "h", Timestamp: ts, Message: "Merge", CommitCount: 2, Types: map[string]int{"feat": 2}},
 		}},
 			[]table{{Header: []string{"hash", "timestamp", "message", "commit_count", "types"},
-				Rows: [][]any{{"h", ts, "Merge", 2, "map[feat:2]"}}}}},
+				Rows: [][]any{{"h", ts, "Merge", 2, map[string]int{"feat": 2}}}}}},
 		{metrics.Result{Name: "s", Value: model.ContributionScore{
 			Total: 3, Breakdown: map[string]float64{"fix": 2, "feat": 1}, CommitCount: 2,
 		}},

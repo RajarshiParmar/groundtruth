@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -57,8 +58,11 @@ func writeSheet(f *excelize.File, name string, t table) error {
 	for i, row := range rows {
 		values := make([]any, len(row))
 		for j, v := range row {
-			if ts, ok := v.(time.Time); ok {
-				v = ts.Format("2006-01-02 15:04")
+			switch c := v.(type) {
+			case time.Time:
+				v = c.Format("2006-01-02 15:04")
+			case map[string]int:
+				v = fmt.Sprint(c)
 			}
 			values[j] = v
 		}

@@ -137,6 +137,8 @@ func mdCell(v any) string {
 		return strconv.FormatBool(x)
 	case time.Time:
 		return x.Format("2006-01-02")
+	case map[string]int:
+		return mdEscape(strings.Join(keyValueParts(x), ", "))
 	case string:
 		return mdEscape(x)
 	default:

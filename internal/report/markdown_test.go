@@ -118,7 +118,7 @@ func TestWriteMarkdown(t *testing.T) {
 func TestWriteMarkdown_EscapesTableCells(t *testing.T) {
 	results := []metrics.Result{{Name: "merge_summaries", Value: []model.MergeSummary{{
 		Hash: "h1", Message: "Merge a|b *now*", CommitCount: 1,
-		Timestamp: time.Date(2025, 3, 2, 9, 0, 0, 0, time.UTC), Types: map[string]int{"feat": 1},
+		Timestamp: time.Date(2025, 3, 2, 9, 0, 0, 0, time.UTC), Types: map[string]int{"feat": 1, "fix": 2},
 	}}}}
 
 	out := readMarkdown(t, results, "p")
@@ -134,6 +134,9 @@ func TestWriteMarkdown_EscapesTableCells(t *testing.T) {
 	// Unescaped pipes delimit cells: 5 columns means 6 delimiters
 	if n := strings.Count(strings.ReplaceAll(row, `\|`, ""), "|"); n != 6 {
 		t.Errorf("row %q has %d delimiters, want 6", row, n)
+	}
+	if !strings.HasSuffix(row, "| feat: 1, fix: 2 |") {
+		t.Errorf("types cell not readable in %q", row)
 	}
 	if !strings.Contains(row, "| 2025-03-02 |") {
 		t.Errorf("timestamp not formatted as a date in %q", row)
