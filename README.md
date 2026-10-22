@@ -71,12 +71,15 @@ One file is generated per enabled metric, for example:
 
 - `commit_count.csv`
 - `commit_by_type.csv`
+- `commit_by_scope.csv`
 - `lines_changed.csv`
 - `files_changed.csv`
 - `activity_timeline_weekly.csv`
 - `activity_timeline_monthly.csv`
 - `merge_summaries.csv`
 - `contribution_score.csv`
+- `highlights.csv` (one row per highlight: date, scope, type, breaking, subject, tickets, hash)
+- `tickets.csv`
 
 ### XLSX
 A single Excel file is generated:
@@ -106,7 +109,17 @@ A concise summary is always printed to stdout after every successful run:
 ── groundtruth summary ─────────────────
   Commit Count         42
   Commit By Type       chore: 5  docs: 7  feat: 18  fix: 12
+  Commit By Scope      api: 9  auth: 14  general: 19
   Lines Changed        added: 1204  net: 817  removed: 387
+  Highlights           42 of 42 commits classified (100%)
+    auth               feat: 5  fix: 2
+      - add SSO login [PROJ-12]
+      - handle expired tokens [#88]
+      - rotate signing keys
+      … 4 more
+  Breaking changes
+      - api: drop v1 endpoints (2025-03-02)
+  Tickets              #88: 2  PROJ-12: 3
   Contribution         84.0  (42 commits)
 ─────────────────────────────────────────
 ```
@@ -144,6 +157,16 @@ metrics:
   activity_timeline: true
   merge_summaries: true
   contribution_score: false
+  commit_by_scope: true
+  highlights: true
+  tickets: true
+
+highlights:
+  types: [feat, fix, perf]
+  per_scope: 3
+
+tickets:
+  prefixes: [PROJ]
 
 output:
   formats:
@@ -183,6 +206,39 @@ With `repository.base_dir: true`, `path` is treated as a folder of checkouts:
 - Directories that cannot be read, and repositories without commits, are skipped with a warning on stderr. The run fails only if no usable repository is found.
 - A commit that appears in more than one repository (forks, backup clones) is counted once.
 
+### Highlights
+
+`metrics.highlights` lists the commits worth mentioning in an appraisal, grouped by scope:
+
+- A commit is a highlight if its type is in `highlights.types` (default `feat`, `fix`, `perf`), or if it is a breaking change of any type.
+- The terminal and PDF show a short view: per scope, the type counts and the `highlights.per_scope` most recent subjects (default 3), then every breaking change.
+- `highlights.csv` and the `highlights` sheet in `report.xlsx` contain the full list.
+- Commits without a scope are grouped under `general`. Merge commits are never highlights; the commits they bring in are.
+- The summary shows how many commits follow Conventional Commits. If your history doesn't use them, highlights will be empty; add `unknown` to `highlights.types` to list those commits too.
+
+```yaml
+highlights:
+  types: [feat, fix, perf, unknown]
+  per_scope: 5
+```
+
+### Scopes
+
+`metrics.commit_by_scope` counts your commits per Conventional Commits scope (`feat(auth): ...` counts towards `auth`), which shows the areas you worked on. Commits without a scope count as `general`; commits that aren't Conventional Commits at all are left out (they appear as `unknown` in `commit_by_type`).
+
+### Tickets
+
+`metrics.tickets` counts how many of your commits mention each ticket:
+
+- `#123` is always recognised, including pull request numbers in merge messages. `page#3` and HTML entities such as `&#39;` are ignored.
+- Tracker keys such as `PROJ-123` are recognised only for the prefixes you list, so `UTF-8` or `SHA-256` are never mistaken for tickets.
+- The whole commit message is searched, including footers such as `Refs: PROJ-12`.
+
+```yaml
+tickets:
+  prefixes: [PROJ, OPS]
+```
+
 ### Contribution score
 
 When `metrics.contribution_score` is enabled, a weighted composite score is computed from your commits. Default weights are used automatically:
@@ -212,6 +268,9 @@ scoring:
 - `metrics.merge_summaries: true` requires `merge_commits.mode: analyze`.
 - Only `commit_count` and `commit_by_type.<type>` are valid keys under `weights`; unknown keys are rejected at load time.
 - Weights must be non-negative.
+- `highlights.types` entries must be lowercase words, such as `feat` or `unknown`.
+- `highlights.per_scope` must be non-negative; `0` means the default of 3.
+- `tickets.prefixes` entries must match `^[A-Z][A-Z0-9]*$`, such as `PROJ` (not `proj` or `PROJ-`).
 
 ---
 
