@@ -7,6 +7,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/RajarshiParmar/groundtruth/internal/paths"
 )
 
 func TestLoad_ExcludePaths(t *testing.T) {
@@ -77,5 +81,57 @@ func TestLoad_IdentityMailmapNoHome(t *testing.T) {
 	_, err := Load(writeConfig(t, withIdentity("  mailmap: ~/x\n")))
 	if err == nil || !strings.HasPrefix(err.Error(), "identity.mailmap: ") {
 		t.Errorf("no home: error %v", err)
+	}
+}
+
+// Patterns written like directories match no file path, so they would leave
+// the counts unchanged without a word
+func TestLoad_ExcludePathsDeadPatternWarns(t *testing.T) {
+	cfg, err := Load(writeConfig(t, validBase+"exclude_paths: [\"vendor/\", \"/vendor/**\", 'vendor\\**', \"**/vendor/**\"]\n"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	var got []string
+	for _, w := range cfg.Warnings {
+		if strings.HasPrefix(w, "exclude_paths: ") {
+			got = append(got, w)
+		}
+	}
+	const hint = ` never matches a file: paths are relative to the repo root, use "/" between directories and no "/" at either end (for example "**/vendor/**")`
+	want := []string{`exclude_paths: "vendor/"` + hint, `exclude_paths: "/vendor/**"` + hint, `exclude_paths: "vendor\\**"` + hint}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("warnings =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// The suggested defaults must also cover nested vendor and node_modules
+// directories (monorepos), and must not warn
+func TestExampleConfig_ExcludePaths(t *testing.T) {
+	data, err := os.ReadFile("../../config.example.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var example struct {
+		ExcludePaths []string `yaml:"exclude_paths"`
+	}
+	if err := yaml.Unmarshal(data, &example); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(writeConfig(t, validBase+"exclude_paths: ["+`"`+strings.Join(example.ExcludePaths, `", "`)+`"`+"]\n"))
+	if err != nil || len(cfg.Warnings) != 0 {
+		t.Fatalf("Load: %v, warnings %q", err, cfg.Warnings)
+	}
+	e, err := paths.NewExcluder(example.ExcludePaths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"go.sum", "web/package-lock.json", "vendor/a.go", "svc/vendor/a.go", "node_modules/x.js", "web/node_modules/x/y.js", "api/v1.pb.go"} {
+		if !e.Match(p) {
+			t.Errorf("example exclude_paths do not match %s", p)
+		}
+	}
+	if e.Match("svc/main.go") {
+		t.Error("example exclude_paths match svc/main.go")
 	}
 }

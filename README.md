@@ -187,7 +187,7 @@ identity:
 
 exclude_paths:
   - go.sum
-  - "vendor/**"
+  - "**/vendor/**"
 
 time_range:
   from: 2025-01-01
@@ -295,8 +295,8 @@ Three options keep the numbers close to the work you did by hand.
 **`exclude_paths`** keeps lockfiles, vendored code and generated files out of `lines_changed` and `files_changed`:
 
 - A pattern without `/` matches the file name at any depth: `package-lock.json` also matches `web/package-lock.json`.
-- A pattern with `/` matches the whole path from the repository root: `vendor/**` matches everything under `vendor/`.
-- `*` stays inside one directory and `**` crosses directories.
+- A pattern with `/` matches the whole path from the repository root: `vendor/**` matches everything under the top-level `vendor/`, and `**/vendor/**` matches every `vendor/` directory at any depth.
+- `*` stays inside one directory and `**` crosses directories. Write directories as `name/**`, not `name/` or `/name`: a pattern that starts or ends with `/`, or contains `\`, never matches a file, and `validate` warns about it.
 - The commit still counts everywhere else (commit count, types, scopes, timeline, tickets, highlights). Only its lines and files in excluded paths are left out.
 - When `exclude_paths` is set, `lines_changed` and `files_changed` gain an `excluded` entry: the excluded lines (added plus removed), and the number of distinct excluded files. It is shown even when it is `0`, so you can see the option is on.
 - Nothing is excluded by default. `config.example.yaml` lists common lockfiles and generated files to start from.
@@ -324,7 +324,7 @@ identity:
 
 exclude_paths:
   - package-lock.json
-  - "vendor/**"
+  - "**/vendor/**"
   - "*.min.js"
 ```
 

@@ -28,8 +28,8 @@ exclude_paths:
   - pnpm-lock.yaml
   - go.sum
   - Cargo.lock
-  - "vendor/**"
-  - "node_modules/**"
+  - "**/vendor/**"
+  - "**/node_modules/**"
   - "*.min.js"
   - "*.pb.go"
 

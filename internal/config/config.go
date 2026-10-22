@@ -200,6 +200,12 @@ func validate(cfg *Config) error {
 	if _, err := paths.NewExcluder(cfg.ExcludePaths); err != nil {
 		return err
 	}
+	for _, g := range cfg.ExcludePaths {
+		// Repo paths never start or end with "/", and "\" escapes the next character
+		if strings.HasPrefix(g, "/") || strings.HasSuffix(g, "/") || strings.Contains(g, `\`) {
+			cfg.Warnings = append(cfg.Warnings, fmt.Sprintf(`exclude_paths: %q never matches a file: paths are relative to the repo root, use "/" between directories and no "/" at either end (for example "**/vendor/**")`, g))
+		}
+	}
 
 	// merge commits
 	switch cfg.MergeCommits.Mode {
