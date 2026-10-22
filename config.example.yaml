@@ -55,19 +55,13 @@ tickets:
   # Tracker keys to recognise, e.g. PROJ matches PROJ-123. "#123" is always recognised.
   prefixes: []
 
-report:
-  sections:
-    summary: true
-    metrics: true
-    timeline: true
-    merges: true
-
 output:
-  # Supported formats: csv, xlsx, pdf
+  # Supported formats: csv, xlsx, pdf, md
   formats:
     - csv
     - xlsx
     - pdf
+    - md    # report.md: paste into an appraisal doc
 
   # Output directory (created if it does not exist)
   directory: ./groundtruth-report
