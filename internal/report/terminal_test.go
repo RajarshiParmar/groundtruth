@@ -119,3 +119,13 @@ func TestWriteSummary_HighlightHints(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteSummary_LongScopeKeepsSeparator(t *testing.T) {
+	h := model.Highlights{Total: 1, Classified: 1, Groups: []model.HighlightGroup{
+		{Scope: "averyveryverylongscopename", Counts: map[string]int{"feat": 1}, Items: []model.Highlight{{Subject: "x"}}},
+	}}
+	out := captureStdout(t, func() { WriteSummary([]metrics.Result{{Name: "highlights", Value: h}}) })
+	if !strings.Contains(out, "    averyveryverylongscopename feat: 1\n") {
+		t.Errorf("scope and counts must stay separated:\n%s", out)
+	}
+}

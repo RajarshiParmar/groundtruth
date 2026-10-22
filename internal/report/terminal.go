@@ -172,7 +172,7 @@ func printHighlights(h model.Highlights) {
 	}
 
 	for _, g := range h.Groups {
-		fmt.Printf("    %-19s%s\n", g.Scope, strings.Join(keyValueParts(g.Counts), "  "))
+		fmt.Printf("    %-18s %s\n", g.Scope, strings.Join(keyValueParts(g.Counts), "  "))
 		for _, it := range g.Items {
 			fmt.Printf("      - %s%s\n", it.Subject, ticketSuffix(it.Tickets))
 		}
