@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/RajarshiParmar/groundtruth/internal/classify"
 	"github.com/RajarshiParmar/groundtruth/internal/config"
@@ -31,6 +32,9 @@ func RunCmd() *cobra.Command {
 			})
 			if err != nil {
 				return err
+			}
+			for _, w := range cfg.Warnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
 			}
 
 			if verbose {
@@ -226,6 +230,11 @@ func RunCmd() *cobra.Command {
 					}
 				case "pdf":
 					if err := report.WritePDF(results, cfg.Output.Directory); err != nil {
+						return err
+					}
+				case "md":
+					period := config.PeriodLabel(cfg.TimeRange, time.Now())
+					if err := report.WriteMarkdown(results, cfg.Output.Directory, period); err != nil {
 						return err
 					}
 				}

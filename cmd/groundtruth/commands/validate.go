@@ -25,6 +25,9 @@ func ValidateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			for _, w := range cfg.Warnings {
+				fmt.Fprintln(os.Stderr, "warning:", w)
+			}
 
 			repos, warnings, err := git.ResolveRepos(cfg.Repository.Path, cfg.Repository.BaseDir)
 			for _, w := range warnings {
