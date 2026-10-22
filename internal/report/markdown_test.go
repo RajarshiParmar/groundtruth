@@ -35,10 +35,55 @@ func TestMdEscape(t *testing.T) {
 		"two\nlines":             "two lines",
 		"crlf\r\nline":           "crlf line",
 		"plain #12, PROJ-3":      "plain #12, PROJ-3",
+		"~~old~~ &copy;":         `\~\~old\~\~ \&copy;`,
 	}
 	for in, want := range cases {
 		if got := mdEscape(in); got != want {
 			t.Errorf("mdEscape(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestMdItem(t *testing.T) {
+	// Text right after "- " must not start a heading, nested list or quote
+	cases := map[string]string{
+		"# 2.0 release": `\# 2.0 release`,
+		"1. first pass": `1\. first pass`,
+		"2) retry":      `2\) retry`,
+		"- fixed typo":  `\- fixed typo`,
+		"+ thing":       `\+ thing`,
+		"> quoted":      `\> quoted`,
+		"2024 roadmap":  "2024 roadmap",
+		"fix #12 crash": "fix #12 crash",
+		"":              "",
+	}
+	for in, want := range cases {
+		if got := mdItem(in); got != want {
+			t.Errorf("mdItem(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestMdHeading(t *testing.T) {
+	// A trailing " #" would be read as a closing sequence and dropped
+	cases := map[string]string{"c#": `c\#`, "foo #": `foo \#`, "a_b": `a\_b`, "auth": "auth"}
+	for in, want := range cases {
+		if got := mdHeading(in); got != want {
+			t.Errorf("mdHeading(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestWriteMarkdown_EscapesListMarkers(t *testing.T) {
+	item := model.Highlight{Subject: "1. Initial import", Scope: "# core", Breaking: true}
+	h := model.Highlights{Total: 1, Classified: 1,
+		Groups:   []model.HighlightGroup{{Scope: "ui #", Counts: map[string]int{"unknown": 1}, Items: []model.Highlight{{Subject: "- Fixed login"}}}},
+		Breaking: []model.Highlight{item},
+	}
+	got := readMarkdown(t, []metrics.Result{{Name: "highlights", Value: h}}, "p")
+	for _, want := range []string{"### ui \\#\n", "\n- \\- Fixed login\n", "\n- \\# core: 1. Initial import\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in\n%s", want, got)
 		}
 	}
 }

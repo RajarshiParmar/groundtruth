@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -74,11 +75,11 @@ func highlightBlocks(h model.Highlights) []string {
 	}
 
 	for _, g := range h.Groups {
-		blocks = append(blocks, "### "+mdEscape(g.Scope), strings.Join(keyValueParts(g.Counts), " · "))
+		blocks = append(blocks, "### "+mdHeading(g.Scope), strings.Join(keyValueParts(g.Counts), " · "))
 
 		items := make([]string, len(g.Items))
 		for i, it := range g.Items {
-			items[i] = "- " + mdEscape(it.Subject) + mdTickets(it.Tickets)
+			items[i] = "- " + mdItem(it.Subject) + mdTickets(it.Tickets)
 		}
 		blocks = append(blocks, strings.Join(items, "\n"))
 	}
@@ -86,9 +87,9 @@ func highlightBlocks(h model.Highlights) []string {
 	if len(h.Breaking) > 0 {
 		items := make([]string, len(h.Breaking))
 		for i, it := range h.Breaking {
-			label := mdEscape(it.Subject)
+			label := mdItem(it.Subject)
 			if it.Scope != "" {
-				label = mdEscape(it.Scope) + ": " + label
+				label = mdItem(it.Scope) + ": " + mdEscape(it.Subject)
 			}
 			items[i] = "- " + label + mdTickets(it.Tickets)
 		}
@@ -145,7 +146,7 @@ func mdCell(v any) string {
 
 var mdEscaper = strings.NewReplacer(
 	`\`, `\\`, "`", "\\`", `*`, `\*`, `_`, `\_`, `[`, `\[`, `]`, `\]`,
-	`<`, `\<`, `>`, `\>`, `|`, `\|`,
+	`<`, `\<`, `>`, `\>`, `|`, `\|`, `~`, `\~`, `&`, `\&`,
 	"\r\n", " ", "\n", " ", "\r", " ",
 )
 
@@ -153,6 +154,32 @@ var mdEscaper = strings.NewReplacer(
 // table cells, and no line breaks inside a list item or table row
 func mdEscape(s string) string {
 	return mdEscaper.Replace(s)
+}
+
+var orderedMarker = regexp.MustCompile(`^\d{1,9}[.)]`)
+
+// mdItem escapes text that starts a list item, so a subject such as
+// "# 2.0", "1. import" or "- fix" stays text instead of a heading or a
+// nested list
+func mdItem(s string) string {
+	s = mdEscape(s)
+	if s != "" && strings.ContainsRune("#+-", rune(s[0])) {
+		return `\` + s
+	}
+	if m := orderedMarker.FindStringIndex(s); m != nil {
+		return s[:m[1]-1] + `\` + s[m[1]-1:]
+	}
+	return s
+}
+
+// mdHeading escapes heading text; a trailing "#" is escaped so it is never
+// read as a closing sequence and dropped
+func mdHeading(s string) string {
+	s = mdEscape(s)
+	if strings.HasSuffix(s, "#") {
+		return s[:len(s)-1] + `\#`
+	}
+	return s
 }
 
 // writeFile writes data, reporting write and close errors like writeRows does
