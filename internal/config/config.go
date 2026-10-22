@@ -16,11 +16,14 @@ type Config struct {
 	TimeRange    TimeRange    `yaml:"time_range"`
 	MergeCommits MergeCommits `yaml:"merge_commits"`
 	Metrics      Metrics      `yaml:"metrics"`
-	Report       Report       `yaml:"report"`
+	Report       *Report      `yaml:"report"` // deprecated: decoded only to warn about it
 	Output       Output       `yaml:"output"`
 	Scoring      Scoring      `yaml:"scoring"`
 	Highlights   Highlights   `yaml:"highlights"`
 	Tickets      Tickets      `yaml:"tickets"`
+
+	// Warnings collects problems that do not stop the config from loading
+	Warnings []string `yaml:"-"`
 }
 
 type Repository struct {
@@ -60,6 +63,7 @@ type Metrics struct {
 	Tickets           bool `yaml:"tickets"`
 }
 
+// Report is the retired report.sections block; metrics.* decides what is shown
 type Report struct {
 	Sections ReportSections `yaml:"sections"`
 }
@@ -204,6 +208,7 @@ func validate(cfg *Config) error {
 		"csv":  true,
 		"xlsx": true,
 		"pdf":  true,
+		"md":   true,
 	}
 
 	for _, f := range cfg.Output.Formats {
@@ -233,6 +238,10 @@ func validate(cfg *Config) error {
 		if !cfg.Metrics.ContributionScore {
 			return fmt.Errorf("scoring.enabled requires metrics.contribution_score to be true")
 		}
+	}
+
+	if cfg.Report != nil {
+		cfg.Warnings = append(cfg.Warnings, "report.sections is no longer used: metrics.* decides what appears in every report. Remove the report: block.")
 	}
 
 	// highlights and tickets
