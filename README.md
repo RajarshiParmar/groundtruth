@@ -208,6 +208,7 @@ metrics:
   commit_by_scope: true
   highlights: true
   tickets: true
+  repo_breakdown: true
 
 highlights:
   types: [feat, fix, perf]
@@ -254,6 +255,17 @@ With `repository.base_dir: true`, `path` is treated as a folder of checkouts:
 - Repositories nested inside another repository (vendored clones, test fixtures) are not scanned separately.
 - Directories that cannot be read, and repositories without commits, are skipped with a warning on stderr. The run fails only if no usable repository is found.
 - A commit that appears in more than one repository (forks, backup clones) is counted once.
+
+### Repositories and periods
+
+**Per-repository breakdown.** With `metrics.repo_breakdown: true` and commits from two or more repositories, the report adds a `repo_breakdown` table:
+
+- Each repository is named by its path under `repository.path`, such as `services/api`. If that folder is itself the repository, its folder name is used.
+- The columns are `commits`, plus `lines_added` and `lines_removed` when `lines_changed` is on, `files` (distinct files) when `files_changed` is on, and `co_authored` when `identity.co_authored` is on.
+- Rows are ordered by commit count, most first, then by name. They add up to the combined totals: a commit found in several clones counts once, for the first repository in alphabetical path order.
+- With a single repository, or only one with commits in the period, nothing is added.
+
+**Highlights by repository.** When the commits come from two or more repositories, highlights are grouped by repository first, then by scope. Breaking changes stay one list, each item starting with its repository (`services/api · auth: drop v1`), and `highlights.csv` gains a `repo` column. A single repository's highlights look as they always did.
 
 ### Highlights
 

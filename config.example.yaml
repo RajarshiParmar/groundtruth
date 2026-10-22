@@ -61,6 +61,7 @@ metrics:
   commit_by_scope: true
   highlights: true
   tickets: true
+  repo_breakdown: true   # per-repository table in base_dir mode
 
 highlights:
   # Commit types listed as highlights; breaking changes are always included.
