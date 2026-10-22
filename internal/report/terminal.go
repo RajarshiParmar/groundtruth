@@ -174,7 +174,7 @@ func printHighlights(h model.Highlights) {
 	for _, g := range h.Groups {
 		fmt.Printf("    %-18s %s\n", g.Scope, strings.Join(keyValueParts(g.Counts), "  "))
 		for _, it := range g.Items {
-			fmt.Printf("      - %s%s\n", it.Subject, ticketSuffix(it.Tickets))
+			fmt.Printf("      - %s%s%s\n", it.Subject, pairedSuffix(it), ticketSuffix(it.Tickets))
 		}
 		if more := moreCount(g); more > 0 {
 			fmt.Printf("      … %d more\n", more)

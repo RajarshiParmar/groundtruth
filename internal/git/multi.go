@@ -20,7 +20,7 @@ type RepoScan struct {
 
 // ScanRepos scans repositories concurrently and returns one result per path,
 // in the same order as paths.
-func ScanRepos(paths []string, from, to time.Time, allowedEmails map[string]bool, analyzeMerges bool) []RepoScan {
+func ScanRepos(paths []string, from, to time.Time, opts ScanOptions) []RepoScan {
 	results := make([]RepoScan, len(paths))
 
 	workers := runtime.NumCPU()
@@ -36,8 +36,8 @@ func ScanRepos(paths []string, from, to time.Time, allowedEmails map[string]bool
 			defer wg.Done()
 			for i := range jobs {
 				scanner := NewScanner(paths[i])
-				scanner.AnalyzeMerges = analyzeMerges
-				commits, err := scanner.Scan(from, to, allowedEmails)
+				scanner.Options = opts
+				commits, err := scanner.Scan(from, to)
 				results[i] = RepoScan{Path: paths[i], Commits: commits, Warnings: scanner.Warnings, Err: err}
 			}
 		}()

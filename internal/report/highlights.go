@@ -45,11 +45,20 @@ func ticketSuffix(tickets []string) string {
 	return " [" + strings.Join(tickets, " ") + "]"
 }
 
-// breakingLabel is "scope: subject (date)", without the scope for unscoped commits
+// breakingLabel is "scope: subject (date)", without the scope for unscoped
+// commits; paired commits are tagged after the subject
 func breakingLabel(it model.Highlight) string {
-	label := it.Subject
+	label := it.Subject + pairedSuffix(it)
 	if it.Scope != "" {
 		label = it.Scope + ": " + label
 	}
 	return label + " (" + it.Timestamp.Format("2006-01-02") + ")"
+}
+
+// pairedSuffix tags a highlight the user co-authored rather than authored
+func pairedSuffix(it model.Highlight) string {
+	if !it.Paired {
+		return ""
+	}
+	return " (paired)"
 }

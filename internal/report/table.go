@@ -72,10 +72,13 @@ func countTable(suffix, keyHeader string, data map[string]int) table {
 // highlightTable is the full highlights list: one row per item in group order
 func highlightTable(h model.Highlights) table {
 	t := table{Header: []string{"date", "scope", "type", "breaking", "subject", "tickets", "hash"}}
+	if h.IncludesCoAuthored {
+		t.Header = append(t.Header, "paired")
+	}
 
 	for _, g := range h.Groups {
 		for _, it := range g.Items {
-			t.Rows = append(t.Rows, []any{
+			row := []any{
 				// The commit's own zone, so the date matches what its author saw
 				it.Timestamp.Format("2006-01-02"),
 				g.Scope,
@@ -84,7 +87,11 @@ func highlightTable(h model.Highlights) table {
 				it.Subject,
 				strings.Join(it.Tickets, " "),
 				it.Hash,
-			})
+			}
+			if h.IncludesCoAuthored {
+				row = append(row, it.Paired)
+			}
+			t.Rows = append(t.Rows, row)
 		}
 	}
 

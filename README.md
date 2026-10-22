@@ -182,6 +182,12 @@ identity:
     - name: Your Name
       email: you@company.com
     - email: you@gmail.com
+  mailmap: ~/.mailmap
+  co_authored: true
+
+exclude_paths:
+  - go.sum
+  - "**/vendor/**"
 
 time_range:
   from: 2025-01-01
@@ -282,6 +288,47 @@ tickets:
   prefixes: [PROJ, OPS]
 ```
 
+### Accurate numbers
+
+Three options keep the numbers close to the work you did by hand.
+
+**`exclude_paths`** keeps lockfiles, vendored code and generated files out of `lines_changed` and `files_changed`:
+
+- A pattern without `/` matches the file name at any depth: `package-lock.json` also matches `web/package-lock.json`.
+- A pattern with `/` matches the whole path from the repository root: `vendor/**` matches everything under the top-level `vendor/`, and `**/vendor/**` matches every `vendor/` directory at any depth.
+- `*` stays inside one directory and `**` crosses directories. Write directories as `name/**`, not `name/` or `/name`: a pattern that starts or ends with `/`, or contains `\`, never matches a file, and `validate` warns about it.
+- The commit still counts everywhere else (commit count, types, scopes, timeline, tickets, highlights). Only its lines and files in excluded paths are left out.
+- When `exclude_paths` is set, `lines_changed` and `files_changed` gain an `excluded` entry: the excluded lines (added plus removed), and the number of distinct excluded files. It is shown even when it is `0`, so you can see the option is on.
+- Nothing is excluded by default. `config.example.yaml` lists common lockfiles and generated files to start from.
+
+**Mailmaps** let commits from your old emails count as yours:
+
+- Each repository's `.mailmap` is read from its root (or from `HEAD` in a bare repository), in git's format.
+- `identity.mailmap` is an optional personal mailmap for every repository; `~/` is expanded to your home directory. It is read after the repository's file and wins where they disagree.
+- An author email counts if it, or the email the mailmaps map it to, is listed in `identity.authors`. Emails and mailmap names are compared case-insensitively, as git does.
+- Lines the parser cannot read are skipped with a warning naming the file and line.
+- Because a repository's `.mailmap` is always read and emails ignore case, an existing config can count more of your commits after upgrading, even without any of the new keys.
+
+**`identity.co_authored: true`** credits commits where you are named in a `Co-authored-by:` trailer but someone else is the author:
+
+- Only the trailer block (the message's last paragraph) is read, and the trailer email goes through the same mailmap and matching as authors.
+- Those commits count in every metric, and a `co_authored` count is shown after `commit_count`.
+- Highlights mark them `(paired)`, and `highlights.csv` / the XLSX sheet gain a `paired` column.
+- It has no effect without `identity.authors`, since every author already counts; `validate` warns about that.
+
+```yaml
+identity:
+  authors:
+    - email: you@company.com
+  mailmap: ~/.mailmap
+  co_authored: true
+
+exclude_paths:
+  - package-lock.json
+  - "**/vendor/**"
+  - "*.min.js"
+```
+
 ### Contribution score
 
 When `metrics.contribution_score` is enabled, a weighted composite score is computed from your commits. Default weights are used automatically:
@@ -315,6 +362,8 @@ scoring:
 - `highlights.per_scope` must be non-negative; `0` means the default of 3.
 - `report.sections` has been removed: the `metrics.*` toggles decide what appears in every report. Configs that still contain a `report:` block load with a warning.
 - `tickets.prefixes` entries must match `^[A-Z][A-Z0-9]*$`, such as `PROJ` (not `proj` or `PROJ-`).
+- Every `exclude_paths` entry must be a valid pattern; an invalid one is named in the error.
+- `identity.mailmap` must be a readable file.
 
 ---
 

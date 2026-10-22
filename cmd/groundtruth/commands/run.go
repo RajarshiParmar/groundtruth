@@ -8,8 +8,10 @@ import (
 	"github.com/RajarshiParmar/groundtruth/internal/classify"
 	"github.com/RajarshiParmar/groundtruth/internal/config"
 	"github.com/RajarshiParmar/groundtruth/internal/git"
+	"github.com/RajarshiParmar/groundtruth/internal/identity"
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
 	"github.com/RajarshiParmar/groundtruth/internal/model"
+	"github.com/RajarshiParmar/groundtruth/internal/paths"
 	"github.com/RajarshiParmar/groundtruth/internal/report"
 	"github.com/spf13/cobra"
 )
@@ -60,16 +62,25 @@ func RunCmd() *cobra.Command {
 				return err
 			}
 
-			// Build allowed author email set
-			emails := make(map[string]bool)
+			// Decide which commits are the user's and which paths count
+			opts := git.ScanOptions{
+				CoAuthored:    cfg.Identity.CoAuthored,
+				AnalyzeMerges: cfg.MergeCommits.Mode == "analyze",
+			}
 			for _, a := range cfg.Identity.Authors {
 				if a.Email != "" {
-					emails[a.Email] = true
+					opts.Emails = append(opts.Emails, a.Email)
 				}
+			}
+			if opts.Mailmap, err = personalMailmap(cfg.Identity.Mailmap); err != nil {
+				return err
+			}
+			if opts.Exclude, err = paths.NewExcluder(cfg.ExcludePaths); err != nil {
+				return err
 			}
 
 			// Scan commits
-			scans := git.ScanRepos(repoPaths, from, to, emails, cfg.MergeCommits.Mode == "analyze")
+			scans := git.ScanRepos(repoPaths, from, to, opts)
 
 			commits, scanWarnings, duplicates, err := git.MergeScans(scans)
 			for _, w := range scanWarnings {
@@ -117,9 +128,12 @@ func RunCmd() *cobra.Command {
 			// Metrics
 			registry := metrics.NewRegistry()
 			registry.Register(&metrics.CommitCountMetric{})
+			registry.Register(&metrics.CoAuthoredMetric{})
 			registry.Register(&metrics.CommitByTypeMetric{})
-			registry.Register(&metrics.LinesChangedMetric{})
-			registry.Register(&metrics.FilesChangedMetric{})
+			// The excluded keys appear only when exclude_paths is set
+			showExcluded := len(cfg.ExcludePaths) > 0
+			registry.Register(&metrics.LinesChangedMetric{ShowExcluded: showExcluded})
+			registry.Register(&metrics.FilesChangedMetric{ShowExcluded: showExcluded})
 			registry.Register(&metrics.ActivityTimelineMetric{})
 			registry.Register(&metrics.MergeSummariesMetric{})
 
@@ -128,9 +142,10 @@ func RunCmd() *cobra.Command {
 			registry.Register(&metrics.CommitByScopeMetric{})
 			registry.Register(&metrics.TicketsMetric{Matcher: matcher})
 			registry.Register(&metrics.HighlightsMetric{
-				Types:    cfg.Highlights.Types,
-				PerScope: cfg.Highlights.PerScope,
-				Matcher:  matcher,
+				Types:      cfg.Highlights.Types,
+				PerScope:   cfg.Highlights.PerScope,
+				Matcher:    matcher,
+				CoAuthored: cfg.Identity.CoAuthored,
 			})
 
 			// Contribution score: typed weights; zero value yields defaults.
@@ -144,6 +159,13 @@ func RunCmd() *cobra.Command {
 
 			if cfg.Metrics.CommitCount {
 				if m, ok := registry.Get("commit_count"); ok {
+					results = append(results, m.Compute(classified))
+				}
+			}
+
+			// Co-author credit is opt-in, so its count is too
+			if cfg.Identity.CoAuthored {
+				if m, ok := registry.Get("co_authored"); ok {
 					results = append(results, m.Compute(classified))
 				}
 			}
@@ -255,4 +277,26 @@ func RunCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// personalMailmap parses identity.mailmap, printing malformed lines as warnings
+func personalMailmap(path string) (identity.Mailmap, error) {
+	if path == "" {
+		return identity.Mailmap{}, nil
+	}
+	path, err := config.ExpandHome(path)
+	if err != nil {
+		return identity.Mailmap{}, fmt.Errorf("identity.mailmap: %w", err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return identity.Mailmap{}, fmt.Errorf("identity.mailmap: %w", err)
+	}
+	defer f.Close()
+
+	m, warnings := identity.ParseMailmap(f, path)
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "warning:", w)
+	}
+	return m, nil
 }

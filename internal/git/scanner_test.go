@@ -9,11 +9,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
-func scan(t *testing.T, r *testRepo, analyze bool, emails map[string]bool) []model.Commit {
+func scan(t *testing.T, r *testRepo, opts ScanOptions) []model.Commit {
 	t.Helper()
 	s := NewScanner(r.dir)
-	s.AnalyzeMerges = analyze
-	commits, err := s.Scan(day(-1), day(100), emails)
+	s.Options = opts
+	commits, err := s.Scan(day(-1), day(100))
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -60,13 +60,13 @@ func TestScan_TimeRangeAndOrder(t *testing.T) {
 	c1 := r.commit(testCommit{msg: "feat: one", when: day(1), files: map[string]string{"a": "1"}})
 	c2 := r.commit(testCommit{msg: "feat: two", when: day(2), files: map[string]string{"a": "2"}})
 
-	all := scan(t, r, false, nil)
+	all := scan(t, r, ScanOptions{})
 	if want := []string{c0.String(), c1.String(), c2.String()}; !reflect.DeepEqual(hashes(all), want) {
 		t.Errorf("order = %v, want oldest → newest %v", hashes(all), want)
 	}
 
 	// from is inclusive, to is exclusive
-	got, err := NewScanner(r.dir).Scan(day(1), day(2), nil)
+	got, err := NewScanner(r.dir).Scan(day(1), day(2))
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestScan_TimeRangeAndOrder(t *testing.T) {
 	}
 
 	// Commits outside the range are skipped, not used to stop the walk early
-	got, err = NewScanner(r.dir).Scan(day(0), day(1), nil)
+	got, err = NewScanner(r.dir).Scan(day(0), day(1))
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -89,12 +89,12 @@ func TestScan_AuthorFilter(t *testing.T) {
 	mine := r.commit(testCommit{msg: "feat: mine", when: day(0), files: map[string]string{"a": "1"}})
 	r.commit(testCommit{msg: "feat: theirs", email: "other@example.com", when: day(1), files: map[string]string{"a": "2"}})
 
-	got := scan(t, r, false, map[string]bool{testEmail: true})
+	got := scan(t, r, ScanOptions{Emails: []string{testEmail}})
 	if want := []string{mine.String()}; !reflect.DeepEqual(hashes(got), want) {
 		t.Errorf("filtered = %v, want %v", hashes(got), want)
 	}
 
-	if got := scan(t, r, false, nil); len(got) != 2 {
+	if got := scan(t, r, ScanOptions{}); len(got) != 2 {
 		t.Errorf("no filter: %d commits, want 2", len(got))
 	}
 }
@@ -108,7 +108,7 @@ func TestScan_DiffStats(t *testing.T) {
 	}})
 	del := r.commit(testCommit{msg: "chore: remove", when: day(2), files: map[string]string{"dir/b.txt": deleted}})
 
-	commits := scan(t, r, false, nil)
+	commits := scan(t, r, ScanOptions{})
 
 	cases := []struct {
 		name           string
@@ -149,7 +149,7 @@ func TestScan_MainlineMerges(t *testing.T) {
 	r.checkout("main", false)
 	m2 := r.merge("feature", day(6))
 
-	commits := scan(t, r, true, nil)
+	commits := scan(t, r, ScanOptions{AnalyzeMerges: true})
 
 	merge1 := byHash(t, commits, m1)
 	if !merge1.IsMerge || merge1.ParentCount != 2 {
@@ -174,7 +174,7 @@ func TestScan_MainlineMerges(t *testing.T) {
 	}
 
 	// Without merge analysis nothing is attributed
-	for _, cm := range scan(t, r, false, nil) {
+	for _, cm := range scan(t, r, ScanOptions{}) {
 		if cm.MergedHashes != nil {
 			t.Errorf("%s: MergedHashes set without analysis", cm.Hash[:8])
 		}
@@ -199,7 +199,7 @@ func TestScan_MergeInsideSideBranch(t *testing.T) {
 	r.checkout("main", false)
 	outer := r.merge("feature", day(6))
 
-	commits := scan(t, r, true, nil)
+	commits := scan(t, r, ScanOptions{AnalyzeMerges: true})
 
 	// inner is not on HEAD's first-parent chain, so it uses the bounded walk
 	if got := byHash(t, commits, inner).MergedHashes; !sameSet(got, s1, s2) {
@@ -211,12 +211,12 @@ func TestScan_MergeInsideSideBranch(t *testing.T) {
 }
 
 func TestScan_Errors(t *testing.T) {
-	if _, err := NewScanner(t.TempDir()).Scan(day(0), day(1), nil); err == nil {
+	if _, err := NewScanner(t.TempDir()).Scan(day(0), day(1)); err == nil {
 		t.Error("plain directory: want error")
 	}
 
 	// A freshly initialised repository has no HEAD commit
-	if _, err := NewScanner(newTestRepo(t).dir).Scan(day(0), day(1), nil); err == nil {
+	if _, err := NewScanner(newTestRepo(t).dir).Scan(day(0), day(1)); err == nil {
 		t.Error("empty repository: want error")
 	}
 }
@@ -230,7 +230,7 @@ func TestScanRepos_KeepsPathOrder(t *testing.T) {
 	missing := t.TempDir()
 
 	paths := []string{b.dir, missing, a.dir}
-	scans := ScanRepos(paths, day(-1), day(100), nil, true)
+	scans := ScanRepos(paths, day(-1), day(100), ScanOptions{AnalyzeMerges: true})
 
 	if len(scans) != len(paths) {
 		t.Fatalf("got %d results, want %d", len(scans), len(paths))

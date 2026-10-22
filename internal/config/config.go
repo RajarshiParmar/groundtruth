@@ -4,9 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/RajarshiParmar/groundtruth/internal/paths"
 )
 
 type Config struct {
@@ -21,6 +26,7 @@ type Config struct {
 	Scoring      Scoring      `yaml:"scoring"`
 	Highlights   Highlights   `yaml:"highlights"`
 	Tickets      Tickets      `yaml:"tickets"`
+	ExcludePaths []string     `yaml:"exclude_paths"`
 
 	// Warnings collects problems that do not stop the config from loading
 	Warnings []string `yaml:"-"`
@@ -32,7 +38,9 @@ type Repository struct {
 }
 
 type Identity struct {
-	Authors []Author `yaml:"authors"`
+	Authors    []Author `yaml:"authors"`
+	Mailmap    string   `yaml:"mailmap"`     // personal .mailmap applied to every repo
+	CoAuthored bool     `yaml:"co_authored"` // credit commits that name you in Co-authored-by
 }
 
 type Author struct {
@@ -173,6 +181,41 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("time_range: from must be before or equal to to")
 	}
 
+	// identity
+	if cfg.Identity.Mailmap != "" {
+		path, err := ExpandHome(cfg.Identity.Mailmap)
+		if err != nil {
+			return fmt.Errorf("identity.mailmap: %w", err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("identity.mailmap: %w", err)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("identity.mailmap: %s is not a regular file", path)
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("identity.mailmap: %w", err)
+		}
+		f.Close()
+	}
+	// Authors without emails match everyone, like no authors at all
+	if cfg.Identity.CoAuthored && !slices.ContainsFunc(cfg.Identity.Authors, func(a Author) bool { return a.Email != "" }) {
+		cfg.Warnings = append(cfg.Warnings, "identity.co_authored has no effect without identity.authors: every author already counts.")
+	}
+
+	// exclude paths
+	if _, err := paths.NewExcluder(cfg.ExcludePaths); err != nil {
+		return err
+	}
+	for _, g := range cfg.ExcludePaths {
+		// Repo paths never start or end with "/", and "\" escapes the next character
+		if strings.HasPrefix(g, "/") || strings.HasSuffix(g, "/") || strings.Contains(g, `\`) {
+			cfg.Warnings = append(cfg.Warnings, fmt.Sprintf(`exclude_paths: %q never matches a file: paths are relative to the repo root, use "/" between directories and no "/" at either end (for example "**/vendor/**")`, g))
+		}
+	}
+
 	// merge commits
 	switch cfg.MergeCommits.Mode {
 	case "ignore", "include", "analyze":
@@ -266,3 +309,17 @@ var (
 	commitTypePattern   = regexp.MustCompile(`^[a-z]+$`)
 	ticketPrefixPattern = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
 )
+
+// ExpandHome replaces a leading "~/" with the home directory; other paths
+// are returned as written (relative ones resolve against the working directory)
+func ExpandHome(path string) (string, error) {
+	rest, ok := strings.CutPrefix(path, "~/")
+	if !ok {
+		return path, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, rest), nil
+}

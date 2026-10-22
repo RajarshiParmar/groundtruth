@@ -15,6 +15,24 @@ identity:
       email: you@company.com
     - email: you@gmail.com
 
+  # Optional personal .mailmap applied to every repository (wins over each repo's own)
+  # mailmap: ~/.mailmap
+
+  # Also count commits that name you in a Co-authored-by trailer; highlights mark them (paired)
+  # co_authored: true
+
+# keep generated and vendored files out of lines/files counts
+exclude_paths:
+  - package-lock.json
+  - yarn.lock
+  - pnpm-lock.yaml
+  - go.sum
+  - Cargo.lock
+  - "**/vendor/**"
+  - "**/node_modules/**"
+  - "*.min.js"
+  - "*.pb.go"
+
 time_range:
   # Use ONE of the following modes
 

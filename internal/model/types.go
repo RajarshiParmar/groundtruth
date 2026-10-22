@@ -17,6 +17,14 @@ type Commit struct {
 
 	FilesChanged []string
 
+	// ExcludedLines and ExcludedFiles are the lines and paths left out by
+	// exclude_paths; they are not part of LinesAdded, LinesRemoved or FilesChanged
+	ExcludedLines int
+	ExcludedFiles []string
+
+	// CoAuthored is set when the user is named only in a Co-authored-by trailer
+	CoAuthored bool
+
 	// MergedHashes lists the commits a merge brought in (merge analysis only)
 	MergedHashes []string
 }

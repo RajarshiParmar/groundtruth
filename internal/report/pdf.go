@@ -161,7 +161,7 @@ func highlightLinesPDF(h model.Highlights) []pdfLine {
 	for _, g := range h.Groups {
 		lines = append(lines, pdfLine{"I", g.Scope + "  (" + strings.Join(keyValueParts(g.Counts), "  ") + ")"})
 		for _, it := range g.Items {
-			lines = append(lines, pdfLine{"", "- " + it.Subject + ticketSuffix(it.Tickets)})
+			lines = append(lines, pdfLine{"", "- " + it.Subject + pairedSuffix(it) + ticketSuffix(it.Tickets)})
 		}
 		if more := moreCount(g); more > 0 {
 			lines = append(lines, pdfLine{"", fmt.Sprintf("… %d more", more)})
