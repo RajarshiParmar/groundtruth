@@ -2,34 +2,10 @@ package report
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/RajarshiParmar/groundtruth/internal/model"
 )
-
-// highlightRows is the full highlights list shared by the CSV and XLSX
-// writers: a header, then one row per item in group order.
-func highlightRows(h model.Highlights) [][]string {
-	rows := [][]string{{"date", "scope", "type", "breaking", "subject", "tickets", "hash"}}
-
-	for _, g := range h.Groups {
-		for _, it := range g.Items {
-			rows = append(rows, []string{
-				// The commit's own zone, so the date matches what its author saw
-				it.Timestamp.Format("2006-01-02"),
-				g.Scope,
-				it.Type,
-				strconv.FormatBool(it.Breaking),
-				it.Subject,
-				strings.Join(it.Tickets, " "),
-				it.Hash,
-			})
-		}
-	}
-
-	return rows
-}
 
 const unknownHint = `Add "unknown" to highlights.types to include them.`
 

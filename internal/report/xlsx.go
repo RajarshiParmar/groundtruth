@@ -1,18 +1,15 @@
 package report
 
 import (
-	"fmt"
-	"maps"
 	"path/filepath"
-	"slices"
-	"sort"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 
 	"github.com/RajarshiParmar/groundtruth/internal/metrics"
-	"github.com/RajarshiParmar/groundtruth/internal/model"
 )
 
+// WriteXLSX writes report.xlsx with one sheet per table: <metric><suffix>
 func WriteXLSX(results []metrics.Result, outputDir string) error {
 	if err := ensureDir(outputDir); err != nil {
 		return err
@@ -21,8 +18,14 @@ func WriteXLSX(results []metrics.Result, outputDir string) error {
 	f := excelize.NewFile()
 
 	for _, r := range results {
-		if err := writeMetricSheet(f, r); err != nil {
+		tables, err := tablesFor(r)
+		if err != nil {
 			return err
+		}
+		for _, t := range tables {
+			if err := writeSheet(f, r.Name+t.Suffix, t); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -38,162 +41,30 @@ func WriteXLSX(results []metrics.Result, outputDir string) error {
 	return f.SaveAs(path)
 }
 
-func writeMetricSheet(f *excelize.File, r metrics.Result) error {
-	switch v := r.Value.(type) {
-
-	case int:
-		return writeSingleValueSheet(f, r.Name, v)
-
-	case map[string]int:
-		return writeKeyValueSheet(f, r.Name, v)
-
-	case map[string]map[string]int:
-		return writeTimelineSheets(f, r.Name, v)
-
-	case []model.MergeSummary:
-		return writeMergeSummarySheet(f, r.Name, v)
-
-	case model.ContributionScore:
-		return writeContributionScoreSheet(f, r.Name, v)
-
-	case model.Highlights:
-		return writeHighlightsSheet(f, r.Name, v)
-
-	default:
-		return fmt.Errorf("unsupported metric output for %s", r.Name)
-	}
-}
-
-func writeSingleValueSheet(f *excelize.File, name string, value int) error {
-	if _, err := f.NewSheet(name); err != nil {
-		return err
-	}
-	f.SetCellValue(name, "A1", "metric")
-	f.SetCellValue(name, "B1", "value")
-	f.SetCellValue(name, "A2", name)
-	f.SetCellValue(name, "B2", value)
-	return nil
-}
-
-func writeKeyValueSheet(f *excelize.File, name string, data map[string]int) error {
-	if _, err := f.NewSheet(name); err != nil {
-		return err
-	}
-	f.SetCellValue(name, "A1", "key")
-	f.SetCellValue(name, "B1", "count")
-
-	row := 2
-	for _, k := range slices.Sorted(maps.Keys(data)) {
-		f.SetCellValue(name, fmt.Sprintf("A%d", row), k)
-		f.SetCellValue(name, fmt.Sprintf("B%d", row), data[k])
-		row++
-	}
-	return nil
-}
-
-func writeTimelineSheets(f *excelize.File, base string, data map[string]map[string]int) error {
-	for _, period := range slices.Sorted(maps.Keys(data)) {
-		values := data[period]
-		sheet := fmt.Sprintf("%s_%s", base, period)
-		if _, err := f.NewSheet(sheet); err != nil {
-			return err
-		}
-		f.SetCellValue(sheet, "A1", "period")
-		f.SetCellValue(sheet, "B1", "count")
-
-		row := 2
-		for _, k := range slices.Sorted(maps.Keys(values)) {
-			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), k)
-			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), values[k])
-			row++
-		}
-	}
-	return nil
-}
-
-func writeMergeSummarySheet(f *excelize.File, name string, data []model.MergeSummary) error {
+// writeSheet writes a table as typed cells, so numbers stay numbers and
+// booleans stay booleans in the spreadsheet
+func writeSheet(f *excelize.File, name string, t table) error {
 	if _, err := f.NewSheet(name); err != nil {
 		return err
 	}
 
-	headers := []string{
-		"hash",
-		"timestamp",
-		"message",
-		"commit_count",
-		"types",
+	header := make([]any, len(t.Header))
+	for i, h := range t.Header {
+		header[i] = h
 	}
+	rows := append([][]any{header}, t.Rows...)
 
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(name, cell, h)
-	}
-
-	row := 2
-	for _, m := range data {
-		f.SetCellValue(name, fmt.Sprintf("A%d", row), m.Hash)
-		f.SetCellValue(name, fmt.Sprintf("B%d", row), m.Timestamp.Format("2006-01-02 15:04"))
-		f.SetCellValue(name, fmt.Sprintf("C%d", row), m.Message)
-		f.SetCellValue(name, fmt.Sprintf("D%d", row), m.CommitCount)
-		f.SetCellValue(name, fmt.Sprintf("E%d", row), fmt.Sprintf("%v", m.Types))
-		row++
-	}
-
-	return nil
-}
-
-func writeContributionScoreSheet(f *excelize.File, name string, data model.ContributionScore) error {
-	if _, err := f.NewSheet(name); err != nil {
-		return err
-	}
-	f.SetCellValue(name, "A1", "component")
-	f.SetCellValue(name, "B1", "score")
-
-	keys := make([]string, 0, len(data.Breakdown))
-	for k := range data.Breakdown {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	row := 2
-	for _, k := range keys {
-		f.SetCellValue(name, fmt.Sprintf("A%d", row), k)
-		f.SetCellValue(name, fmt.Sprintf("B%d", row), data.Breakdown[k])
-		row++
-	}
-
-	f.SetCellValue(name, fmt.Sprintf("A%d", row), "total")
-	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.Total)
-	row++
-
-	f.SetCellValue(name, fmt.Sprintf("A%d", row), "commit_count")
-	f.SetCellValue(name, fmt.Sprintf("B%d", row), data.CommitCount)
-
-	return nil
-}
-
-func writeHighlightsSheet(f *excelize.File, name string, data model.Highlights) error {
-	if _, err := f.NewSheet(name); err != nil {
-		return err
-	}
-
-	for i, row := range highlightRows(data) {
-		cell, _ := excelize.CoordinatesToCellName(1, i+1)
+	for i, row := range rows {
 		values := make([]any, len(row))
 		for j, v := range row {
+			if ts, ok := v.(time.Time); ok {
+				v = ts.Format("2006-01-02 15:04")
+			}
 			values[j] = v
 		}
+		cell, _ := excelize.CoordinatesToCellName(1, i+1)
 		if err := f.SetSheetRow(name, cell, &values); err != nil {
 			return err
-		}
-	}
-
-	// Write breaking as a real boolean so spreadsheet filters work on it
-	row := 2
-	for _, g := range data.Groups {
-		for _, it := range g.Items {
-			f.SetCellValue(name, fmt.Sprintf("D%d", row), it.Breaking)
-			row++
 		}
 	}
 
