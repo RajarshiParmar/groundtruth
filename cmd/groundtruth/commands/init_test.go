@@ -262,3 +262,28 @@ func TestShellQuote(t *testing.T) {
 		}
 	}
 }
+
+// main prints a returned error once; cobra must not print it again or bury it under the usage text
+func TestRootCmd_ErrorNotPrinted(t *testing.T) {
+	initDir(t, "me@example.com")
+	if err := os.WriteFile(defaultConfig, []byte("mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	stderr := captureStderr(t, func() {
+		stdout := captureStdout(t, func() {
+			root := RootCmd()
+			root.SetArgs([]string{"init"})
+			err = root.Execute()
+		})
+		if stdout != "" {
+			t.Errorf("stdout = %q, want empty", stdout)
+		}
+	})
+	if err == nil {
+		t.Fatal("init over an existing file succeeded")
+	}
+	if stderr != "" {
+		t.Errorf("stderr = %q, want empty", stderr)
+	}
+}

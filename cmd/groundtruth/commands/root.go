@@ -14,6 +14,9 @@ func RootCmd() *cobra.Command {
 		Version: Version(),
 	}
 	root.SetVersionTemplate("groundtruth version: {{.Version}}\n")
+	// main prints the error once, on stderr; usage text would bury it
+	root.SilenceErrors = true
+	root.SilenceUsage = true
 	root.SetOut(os.Stdout)
 
 	root.AddCommand(InitCmd())
