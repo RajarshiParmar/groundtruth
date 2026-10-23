@@ -16,6 +16,7 @@ func RootCmd() *cobra.Command {
 	root.SetVersionTemplate("groundtruth version: {{.Version}}\n")
 	root.SetOut(os.Stdout)
 
+	root.AddCommand(InitCmd())
 	root.AddCommand(RunCmd())
 	root.AddCommand(ValidateCmd())
 	root.AddCommand(VersionCmd())
