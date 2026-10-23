@@ -183,3 +183,65 @@ func TestInit_MissingDir(t *testing.T) {
 		t.Errorf("nope was created (stat err %v)", err)
 	}
 }
+
+// defaultConfigDir moves into a directory holding repo/ and a groundtruth.yaml that points at it
+func defaultConfigDir(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	repo := filepath.Join(tmp, "repo")
+	if err := os.Mkdir(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	makeRepo(t, repo)
+	data, err := os.ReadFile(writeConfig(t, repo, false, "analyze", "  commit_count: true"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, defaultConfig), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(tmp)
+	return tmp
+}
+
+func TestRun_DefaultConfig(t *testing.T) {
+	tmp := defaultConfigDir(t)
+	captureStdout(t, func() {
+		if err := execute(t, RunCmd(), "--dry-run"); err != nil {
+			t.Errorf("run --dry-run: %v", err)
+		}
+		if err := execute(t, RunCmd(), "--output", "out"); err != nil {
+			t.Errorf("run --output out: %v", err)
+		}
+	})
+	if entries, err := os.ReadDir(filepath.Join(tmp, "out")); err != nil || len(entries) == 0 {
+		t.Errorf("no reports in out/ (err %v)", err)
+	}
+}
+
+func TestValidate_DefaultConfig(t *testing.T) {
+	defaultConfigDir(t)
+	captureStdout(t, func() {
+		if err := execute(t, ValidateCmd()); err != nil {
+			t.Errorf("validate: %v", err)
+		}
+	})
+}
+
+func TestRun_MissingDefaultConfig(t *testing.T) {
+	t.Chdir(t.TempDir())
+	want := `no config file: groundtruth.yaml not found (pass --config, or create one with "groundtruth init")`
+	if err := execute(t, RunCmd()); err == nil || err.Error() != want {
+		t.Errorf("run: err = %v, want %q", err, want)
+	}
+	if err := execute(t, ValidateCmd()); err == nil || err.Error() != want {
+		t.Errorf("validate: err = %v, want %q", err, want)
+	}
+}
+
+func TestRun_ExplicitMissingConfig(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := execute(t, RunCmd(), "--config", "nope.yaml"); err == nil || !strings.HasPrefix(err.Error(), "Failed to read config file:") {
+		t.Errorf("err = %v, want it to start with Failed to read config file:", err)
+	}
+}

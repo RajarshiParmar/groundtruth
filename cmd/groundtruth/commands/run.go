@@ -27,7 +27,11 @@ func RunCmd() *cobra.Command {
 		Short: "Generate appraisal report from git history",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load and validate config
-			cfg, err := config.Load(configPath, func(c *config.Config) {
+			cfgPath, err := configPathOrDefault(configPath)
+			if err != nil {
+				return err
+			}
+			cfg, err := config.Load(cfgPath, func(c *config.Config) {
 				if outputDir != "" {
 					c.Output.Directory = outputDir
 				}
@@ -224,14 +228,10 @@ func RunCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configPath, "config", "", "Path to config file (required)")
+	cmd.Flags().StringVar(&configPath, "config", "", "Path to config file (default groundtruth.yaml)")
 	cmd.Flags().StringVar(&outputDir, "output", "", "Override output directory")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate config and repo without running analysis")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Enable verbose logging")
-
-	if err := cmd.MarkFlagRequired("config"); err != nil {
-		panic(err)
-	}
 
 	return cmd
 }

@@ -34,7 +34,30 @@ This produces a `groundtruth` binary. Check which version you have with `groundt
 
 ## Basic usage
 
-Create a configuration file (see example below), then run:
+From inside a repository (or a folder of repositories), write a starter config:
+
+```bash
+groundtruth init
+```
+
+It fills in the repository path and your `git config` name and email, and writes `groundtruth.yaml`. Edit it (time
+range, other emails you've committed with, output formats), then run:
+
+```bash
+groundtruth run
+```
+
+`run` and `validate` read `groundtruth.yaml` from the current directory unless you pass `--config`. The file holds your
+email addresses, so keep it out of commits (add it to `.gitignore`).
+
+Commands:
+
+- `init [path] [--force]`: write a starter config (default `groundtruth.yaml`); `--force` overwrites an existing file
+- `run`: scan history and write reports
+- `validate`: check the config and repository access
+- `version`: print the version (also `--version`)
+
+To try the tool on this repository with the example config:
 
 ```bash
 ./groundtruth run --config config.example.yaml

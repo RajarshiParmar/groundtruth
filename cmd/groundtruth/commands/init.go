@@ -106,6 +106,17 @@ func InitCmd() *cobra.Command {
 	return cmd
 }
 
+// configPathOrDefault returns the --config value, or groundtruth.yaml when the flag is empty and that file exists
+func configPathOrDefault(flag string) (string, error) {
+	if flag != "" {
+		return flag, nil
+	}
+	if _, err := os.Stat(defaultConfig); errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf(`no config file: %s not found (pass --config, or create one with "groundtruth init")`, defaultConfig)
+	}
+	return defaultConfig, nil
+}
+
 // shellQuote single-quotes a path with whitespace so the printed command can be pasted as is
 func shellQuote(path string) string {
 	if strings.ContainsFunc(path, unicode.IsSpace) {
