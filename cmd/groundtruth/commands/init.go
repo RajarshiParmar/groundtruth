@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 
 	"github.com/RajarshiParmar/groundtruth/internal/config"
 	"github.com/RajarshiParmar/groundtruth/internal/git"
@@ -117,13 +116,16 @@ func configPathOrDefault(flag string) (string, error) {
 	return defaultConfig, nil
 }
 
-// shellQuote single-quotes a path with whitespace so the printed command can be pasted as is
+// shellQuote single-quotes a path the shell would read specially, so the printed command can be pasted as is
 func shellQuote(path string) string {
-	if strings.ContainsFunc(path, unicode.IsSpace) {
-		return "'" + path + "'"
+	if path != "" && !strings.ContainsFunc(path, func(r rune) bool { return !strings.ContainsRune(shellSafe, r) }) {
+		return path
 	}
-	return path
+	return "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
 }
+
+// shellSafe holds the characters no POSIX shell treats specially
+const shellSafe = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@%+=:,./-_"
 
 // inside reports whether path, relative to the working directory, lies under dir
 func inside(dir, path string) bool {

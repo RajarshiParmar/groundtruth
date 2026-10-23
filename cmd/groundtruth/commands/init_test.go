@@ -245,3 +245,20 @@ func TestRun_ExplicitMissingConfig(t *testing.T) {
 		t.Errorf("err = %v, want it to start with Failed to read config file:", err)
 	}
 }
+
+// The next: line is meant to be pasted into a shell, so anything the shell would read specially is quoted
+func TestShellQuote(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"my.yaml", "my.yaml"},
+		{"cfg/my-file_1.yaml", "cfg/my-file_1.yaml"},
+		{"my file.yaml", "'my file.yaml'"},
+		{"it's.yaml", `'it'\''s.yaml'`},
+		{"a$b.yaml", "'a$b.yaml'"},
+		{"*.yaml", "'*.yaml'"},
+		{"zoë.yaml", "'zoë.yaml'"},
+	} {
+		if got := shellQuote(c.in); got != c.want {
+			t.Errorf("shellQuote(%q) = %s, want %s", c.in, got, c.want)
+		}
+	}
+}
