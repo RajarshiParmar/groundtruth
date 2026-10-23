@@ -26,6 +26,8 @@ func TestStarter_RoundTrip(t *testing.T) {
 		{Path: "/srv/zoë", Name: "Zoë", Email: "z@example.com"},
 		{Path: "/r", Name: "yes", Email: "*star@example.com"},
 		{Path: "/r", Name: "", Email: "only@example.com"},
+		// git config allows escaped newlines; block scalars would break the template's indentation
+		{Path: "/r/a\nb", Name: "A\nB", Email: "e\n@example.com", BaseDir: true},
 	} {
 		data := Starter(v)
 		file := filepath.Join(t.TempDir(), "groundtruth.yaml")
