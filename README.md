@@ -10,7 +10,16 @@ It is built for developers who want a **clear, honest summary of their work**, w
 
 ## Installation
 
-Clone the repository and build locally:
+Download a binary for Linux, macOS or Windows from the [Releases](https://github.com/RajarshiParmar/groundtruth/releases) page.
+Each release lists SHA-256 checksums in `checksums.txt`.
+
+Or install with Go:
+
+```bash
+go install github.com/RajarshiParmar/groundtruth/cmd/groundtruth@latest
+```
+
+Or clone the repository and build locally:
 
 ```bash
 git clone https://github.com/RajarshiParmar/groundtruth
@@ -18,13 +27,37 @@ cd groundtruth
 go build ./cmd/groundtruth
 ```
 
-This produces a `groundtruth` binary.
+This produces a `groundtruth` binary. Check which version you have with `groundtruth --version`
+(a local build shows `dev` and the commit, e.g. `dev (a1b2c3d)`).
 
 ---
 
 ## Basic usage
 
-Create a configuration file (see example below), then run:
+From inside a repository (or a folder of repositories), write a starter config:
+
+```bash
+groundtruth init
+```
+
+It fills in the repository path and your `git config` name and email, and writes `groundtruth.yaml`. Edit it (time
+range, other emails you've committed with, output formats), then run:
+
+```bash
+groundtruth run
+```
+
+`run` and `validate` read `groundtruth.yaml` from the current directory unless you pass `--config`. The file holds your
+email addresses, so keep it out of commits (add it to `.gitignore`).
+
+Commands:
+
+- `init [path] [--force]`: write a starter config (default `groundtruth.yaml`); `--force` overwrites an existing file
+- `run`: scan history and write reports
+- `validate`: check the config and repository access
+- `version`: print the version (also `--version`)
+
+To try the tool on this repository with the example config:
 
 ```bash
 ./groundtruth run --config config.example.yaml

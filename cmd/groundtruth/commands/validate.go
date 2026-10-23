@@ -15,6 +15,10 @@ func ValidateCmd() *cobra.Command {
 		Short: "Validate configuration file",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfgPath, _ := cmd.Flags().GetString("config")
+			cfgPath, err := configPathOrDefault(cfgPath)
+			if err != nil {
+				return err
+			}
 			outputDir, _ := cmd.Flags().GetString("output")
 
 			cfg, err := config.Load(cfgPath, func(c *config.Config) {
@@ -46,9 +50,8 @@ func ValidateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().String("config", "", "Path to config file (required)")
+	cmd.Flags().String("config", "", "Path to config file (default groundtruth.yaml)")
 	cmd.Flags().String("output", "", "Override output directory")
-	_ = cmd.MarkFlagRequired("config")
 
 	return cmd
 }

@@ -1,0 +1,109 @@
+version: 1
+
+repository:
+  # Path to a single git repository or a base directory
+  path: {{yaml .Path}}
+
+  # If true, all subdirectories under `path` will be scanned for git repositories
+  base_dir: {{.BaseDir}}
+
+identity:
+  # Only commits matching these authors will be included
+  # Useful if you have used multiple emails over time
+  authors:
+{{- if .Name}}
+    - name: {{yaml .Name}}
+      email: {{yaml .Email}}
+{{- else}}
+    - email: {{yaml .Email}}
+{{- end}}
+    # - email: you@gmail.com   # older emails you've committed with
+
+  # Optional personal .mailmap applied to every repository (wins over each repo's own)
+  # mailmap: ~/.mailmap
+
+  # Also count commits that name you in a Co-authored-by trailer; highlights mark them (paired)
+  # co_authored: true
+
+# keep generated and vendored files out of lines/files counts
+exclude_paths:
+  - package-lock.json
+  - yarn.lock
+  - pnpm-lock.yaml
+  - go.sum
+  - Cargo.lock
+  - "**/vendor/**"
+  - "**/node_modules/**"
+  - "*.min.js"
+  - "*.pb.go"
+
+time_range:
+  # Use ONE of the following modes
+
+  # Option A: relative range
+  last: 6m   # supported: 30d | 3m | 6m | 1y
+
+  # Option B: explicit date range (ISO format; comment out last if used)
+  # from: 2025-01-01
+  # to: 2025-06-30
+
+merge_commits:
+  # ignore   → exclude merge commits entirely
+  # include  → treat merge commits as normal commits
+  # analyze  → extract summaries and group child commits
+  mode: analyze
+
+metrics:
+  # All metrics are optional and removable
+  commit_count: true
+  commit_by_type: true
+  lines_changed: true
+  files_changed: true
+  activity_timeline: true
+  merge_summaries: true
+  contribution_score: true
+  commit_by_scope: true
+  highlights: true
+  tickets: true
+  repo_breakdown: true   # per-repository table in base_dir mode
+
+highlights:
+  # Commit types listed as highlights; breaking changes are always included.
+  # Add "unknown" if your history doesn't use Conventional Commits.
+  types: [feat, fix, perf]
+  # Subjects per scope in the terminal and PDF summary (CSV/XLSX list them all)
+  per_scope: 3
+
+tickets:
+  # Tracker keys to recognise, e.g. PROJ matches PROJ-123. "#123" is always recognised.
+  prefixes: []
+
+output:
+  # Supported formats: csv, xlsx, pdf, md
+  formats:
+    - csv
+    - xlsx
+    - pdf
+    - md    # report.md: paste into an appraisal doc
+
+  # Output directory (created if it does not exist)
+  directory: ./groundtruth-report
+
+# Optional: compare this period's totals with an earlier one
+# compare: previous     # the same length, just before time_range
+# compare:              # or an explicit earlier period
+#   from: 2024-01-01
+#   to: 2024-06-30
+
+scoring:
+  # Disabled by default. Enable only if you explicitly want a score.
+  enabled: false
+
+  # Applied only if scoring.enabled = true
+  # Uses only enabled metrics
+  weights:
+    commit_count: 1
+    commit_by_type:
+      feat: 3
+      fix: 2
+      docs: 1
