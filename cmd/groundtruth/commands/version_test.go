@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"os"
 	"runtime/debug"
+	"strings"
 	"testing"
 )
 
@@ -57,5 +59,17 @@ func TestVersionOutput(t *testing.T) {
 		if want := "groundtruth version: v9.9.9\n"; out != want {
 			t.Errorf("%v: output = %q, want %q", args, out, want)
 		}
+	}
+}
+
+// Releases set the version through this exact -X path; a typo would make every release print "dev"
+func TestGoreleaserLdflags(t *testing.T) {
+	data, err := os.ReadFile("../../../.goreleaser.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "-X github.com/RajarshiParmar/groundtruth/cmd/groundtruth/commands.version={{.Tag}}"
+	if !strings.Contains(string(data), want) {
+		t.Errorf(".goreleaser.yaml does not set %q", want)
 	}
 }

@@ -10,7 +10,16 @@ It is built for developers who want a **clear, honest summary of their work**, w
 
 ## Installation
 
-Clone the repository and build locally:
+Download a binary for Linux, macOS or Windows from the [Releases](https://github.com/RajarshiParmar/groundtruth/releases) page.
+Each release lists SHA-256 checksums in `checksums.txt`.
+
+Or install with Go:
+
+```bash
+go install github.com/RajarshiParmar/groundtruth/cmd/groundtruth@latest
+```
+
+Or clone the repository and build locally:
 
 ```bash
 git clone https://github.com/RajarshiParmar/groundtruth
@@ -18,7 +27,8 @@ cd groundtruth
 go build ./cmd/groundtruth
 ```
 
-This produces a `groundtruth` binary.
+This produces a `groundtruth` binary. Check which version you have with `groundtruth --version`
+(a local build shows `dev` and the commit, e.g. `dev (a1b2c3d)`).
 
 ---
 
