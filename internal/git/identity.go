@@ -11,23 +11,42 @@ import (
 // settings over the global ones, or only the global ones when repoPath is "".
 // A missing or unreadable global config counts as not set.
 func ReadIdentity(repoPath string) (name, email string, warnings []string) {
-	var cfg *config.Config
+	global, err := config.LoadConfig(config.GlobalScope)
+	if err != nil {
+		global = nil
+	}
+	cfg, local := global, (*config.Config)(nil)
 	if repoPath != "" {
 		repo, err := openRepo(repoPath)
+		if err == nil {
+			local, err = repo.Config()
+		}
 		if err == nil {
 			cfg, err = repo.ConfigScoped(config.GlobalScope)
 		}
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("could not read git config in %s: %v", repoPath, err))
-			cfg = nil
+			cfg, local = global, nil
 		}
+	}
+	// go-git does not follow includes, so an identity set in an included file is missed
+	if usesInclude(global) || usesInclude(local) {
+		warnings = append(warnings, "git config uses include or includeIf, which groundtruth does not read; check the name and email")
 	}
 	if cfg == nil {
-		global, err := config.LoadConfig(config.GlobalScope)
-		if err != nil {
-			return "", "", warnings
-		}
-		cfg = global
+		return "", "", warnings
 	}
 	return strings.TrimSpace(cfg.User.Name), strings.TrimSpace(cfg.User.Email), warnings
+}
+
+func usesInclude(cfg *config.Config) bool {
+	if cfg == nil || cfg.Raw == nil {
+		return false
+	}
+	for _, s := range cfg.Raw.Sections {
+		if s.IsName("include") || s.IsName("includeIf") {
+			return true
+		}
+	}
+	return false
 }

@@ -77,3 +77,29 @@ func TestReadIdentity_BadRepo(t *testing.T) {
 		t.Errorf("warnings = %v, want one starting with %q", warnings, "could not read git config in "+dir)
 	}
 }
+
+// go-git does not follow include or includeIf, so a work email set that way would be missed without a word
+func TestReadIdentity_IncludeWarns(t *testing.T) {
+	const want = "git config uses include or includeIf, which groundtruth does not read; check the name and email"
+	home := isolateHome(t, globalIdentity+"[includeIf \"gitdir:~/work/\"]\n\tpath = ~/.gitconfig-work\n")
+	_, _, warnings := ReadIdentity("")
+	if len(warnings) != 1 || warnings[0] != want {
+		t.Errorf("global includeIf: warnings = %v, want [%q]", warnings, want)
+	}
+
+	if err := os.WriteFile(filepath.Join(home, ".gitconfig"), []byte(globalIdentity), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if _, err := git.PlainInit(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	local := "[core]\n\tbare = false\n[include]\n\tpath = ../extra.gitconfig\n"
+	if err := os.WriteFile(filepath.Join(dir, ".git", "config"), []byte(local), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, warnings = ReadIdentity(dir)
+	if len(warnings) != 1 || warnings[0] != want {
+		t.Errorf("local include: warnings = %v, want [%q]", warnings, want)
+	}
+}
